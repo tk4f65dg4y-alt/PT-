@@ -1,0 +1,198 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { api } from "../../lib/api";
+
+interface Completion {
+  id: string;
+  userId: string;
+  completedAt: string;
+  actualSets: number | null;
+  actualReps: string | null;
+  actualWeight: string | null;
+}
+interface Session {
+  id: string;
+  userId: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationSeconds: number | null;
+}
+interface Exercise {
+  id: string;
+  name: string;
+  sets: number | null;
+  reps: string | null;
+  weight: string | null;
+  restSeconds: number | null;
+  completions: Completion[];
+}
+interface Day {
+  id: string;
+  label: string;
+  exercises: Exercise[];
+  sessions: Session[];
+}
+interface Week {
+  id: string;
+  label: string;
+  days: Day[];
+}
+interface Member {
+  id: string;
+  name: string;
+  email: string;
+}
+interface PlanData {
+  id: string;
+  title: string;
+  notes: string | null;
+  startDate: string | null;
+  archived: boolean;
+  group: { id: string; members: { user: Member }[] };
+  weeks: Week[];
+}
+
+function fmtDuration(s: number | null) {
+  if (!s && s !== 0) return null;
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}m ${sec}s`;
+}
+
+export default function PlanView() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [plan, setPlan] = useState<PlanData | null>(null);
+  const [activeMember, setActiveMember] = useState<string>("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api
+      .get(`/admin/plans/${id}`)
+      .then((p) => {
+        setPlan(p);
+        setActiveMember(p.group.members[0]?.user.id || "");
+      })
+      .catch((e) => setError(e.message));
+  }, [id]);
+
+  async function archive() {
+    if (!plan) return;
+    await api.put(`/admin/plans/${plan.id}`, { archived: !plan.archived });
+    setPlan({ ...plan, archived: !plan.archived });
+  }
+
+  async function remove() {
+    if (!plan) return;
+    if (!confirm("Delete this plan permanently? This cannot be undone.")) return;
+    await api.del(`/admin/plans/${plan.id}`);
+    navigate(`/admin/groups/${plan.group.id}`);
+  }
+
+  if (error) return <div className="content"><div className="error-box">{error}</div></div>;
+  if (!plan) return <div className="empty">Loading…</div>;
+
+  const members = plan.group.members.map((m) => m.user);
+
+  return (
+    <div className="app-shell wide">
+      <div className="topbar">
+        <div>
+          <button
+            className="btn ghost"
+            onClick={() => navigate(`/admin/groups/${plan.group.id}`)}
+            style={{ padding: 0, marginBottom: 4 }}
+          >
+            ← Back
+          </button>
+          <h1>{plan.title}</h1>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button className="btn secondary sm" onClick={archive}>
+            {plan.archived ? "Unarchive" : "Archive"}
+          </button>
+          <button className="btn danger sm" onClick={remove}>
+            Delete
+          </button>
+        </div>
+      </div>
+      <div className="content">
+        {plan.notes && (
+          <div className="card small muted">{plan.notes}</div>
+        )}
+
+        {members.length > 1 && (
+          <div className="tabs">
+            {members.map((m) => (
+              <div
+                key={m.id}
+                className={`tab ${activeMember === m.id ? "active" : ""}`}
+                onClick={() => setActiveMember(m.id)}
+              >
+                {m.name}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {plan.weeks.map((week) => (
+          <div className="week-block" key={week.id}>
+            <div className="week-title">{week.label}</div>
+            {week.days.map((day) => {
+              const done = day.exercises.filter((ex) =>
+                ex.completions.some((c) => c.userId === activeMember)
+              ).length;
+              const total = day.exercises.length;
+              const session = day.sessions.find((s) => s.userId === activeMember && s.durationSeconds != null);
+              return (
+                <div className="card" key={day.id}>
+                  <div className="list-row">
+                    <div style={{ fontWeight: 700 }}>{day.label}</div>
+                    <span className={`badge ${done === total && total > 0 ? "good" : ""}`}>
+                      {done}/{total}
+                    </span>
+                  </div>
+                  {total > 0 && (
+                    <div className="progress-bar">
+                      <div style={{ width: `${(done / total) * 100}%` }} />
+                    </div>
+                  )}
+                  {session && (
+                    <div className="small muted" style={{ marginTop: 6 }}>
+                      Workout took {fmtDuration(session.durationSeconds)}
+                    </div>
+                  )}
+                  <div style={{ marginTop: 10 }}>
+                    {day.exercises.map((ex) => {
+                      const c = ex.completions.find((c) => c.userId === activeMember);
+                      return (
+                        <div className="exercise-row" key={ex.id}>
+                          <div className={`checkbox ${c ? "checked" : ""}`}>{c ? "✓" : ""}</div>
+                          <div style={{ flex: 1 }}>
+                            <div className={`exercise-name ${c ? "done" : ""}`}>{ex.name}</div>
+                            <div className="exercise-meta">
+                              {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`, ex.weight]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                            {c && (
+                              <div className="small muted" style={{ marginTop: 3 }}>
+                                Done {new Date(c.completedAt).toLocaleString()}
+                                {(c.actualWeight || c.actualReps) &&
+                                  ` · logged ${[c.actualReps && `${c.actualReps} reps`, c.actualWeight].filter(Boolean).join(" @ ")}`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

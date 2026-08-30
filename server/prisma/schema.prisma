@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TRAINER
+  CLIENT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  groupMemberships GroupMember[]
+  completions       Completion[]
+  sessions          WorkoutSession[]
+  createdPlans      Plan[]            @relation("PlanCreator")
+}
+
+// A Group is the unit a plan is assigned to. Solo clients are a group of 1;
+// clients who train together (pairs) are a group of 2+, sharing the same
+// assigned plan while each member's completions are tracked separately.
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members GroupMember[]
+  plans   Plan[]
+}
+
+model GroupMember {
+  id      String @id @default(cuid())
+  groupId String
+  userId  String
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+model Plan {
+  id          String    @id @default(cuid())
+  groupId     String
+  title       String
+  notes       String?
+  startDate   DateTime?
+  archived    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  createdById String
+
+  group     Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("PlanCreator", fields: [createdById], references: [id])
+  weeks     Week[]
+}
+
+model Week {
+  id      String  @id @default(cuid())
+  planId  String
+  index   Int
+  label   String?
+
+  plan Plan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  days Day[]
+}
+
+model Day {
+  id      String @id @default(cuid())
+  weekId  String
+  index   Int
+  label   String
+
+  week      Week             @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  exercises Exercise[]
+  sessions  WorkoutSession[]
+}
+
+model Exercise {
+  id          String  @id @default(cuid())
+  dayId       String
+  index       Int
+  name        String
+  sets        Int?
+  reps        String?
+  weight      String?
+  restSeconds Int?
+  notes       String?
+
+  day         Day          @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  completions Completion[]
+}
+
+model Completion {
+  id           String   @id @default(cuid())
+  exerciseId   String
+  userId       String
+  completedAt  DateTime @default(now())
+  actualSets   Int?
+  actualReps   String?
+  actualWeight String?
+  notes        String?
+
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([exerciseId, userId])
+}
+
+model WorkoutSession {
+  id              String    @id @default(cuid())
+  dayId           String
+  userId          String
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  durationSeconds Int?
+
+  day  Day  @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
