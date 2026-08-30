@@ -47,9 +47,25 @@ async function bootstrapAdmin() {
   console.log(`Created trainer account for ${adminEmail}`);
 }
 
+// Lets you reset the trainer login's password by setting ADMIN_RESET_PASSWORD
+// (and redeploying) instead of needing a "forgot password" flow. Runs on every
+// boot; idempotent — it's a no-op once the password already matches.
+async function applyAdminPasswordReset() {
+  const resetPassword = process.env.ADMIN_RESET_PASSWORD;
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!resetPassword || !adminEmail) return;
+  const email = adminEmail.toLowerCase().trim();
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || user.role !== "TRAINER") return;
+  const passwordHash = await hashPassword(resetPassword);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  console.log(`Reset password for trainer account ${email}`);
+}
+
 const PORT = Number(process.env.PORT) || 3000;
 bootstrapAdmin()
-  .catch((err) => console.error("Failed to bootstrap admin account", err))
+  .then(() => applyAdminPasswordReset())
+  .catch((err) => console.error("Failed to bootstrap/reset admin account", err))
   .finally(() => {
     app.listen(PORT, () => console.log(`Server listening on :${PORT}`));
   });
