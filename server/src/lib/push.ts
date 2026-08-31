@@ -48,3 +48,8 @@ export async function sendPushToUsers(
 ) {
   await Promise.all(userIds.map((id) => sendPushToUser(id, payload)));
 }
+
+export async function sendPushToTrainers(payload: { title: string; body: string; url?: string }) {
+  const trainers = await prisma.user.findMany({ where: { role: "TRAINER" }, select: { id: true } });
+  await sendPushToUsers(trainers.map((t) => t.id), payload);
+}

@@ -2,7 +2,13 @@ import { Router } from "express";
 import { prisma } from "../db";
 import { requireAuth, requireRole } from "../auth";
 import { computeClientStats } from "../lib/stats";
-import { sendPushToUsers } from "../lib/push";
+import { sendPushToUsers, sendPushToTrainers } from "../lib/push";
+
+function formatDuration(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
 
 const router = Router();
 router.use(requireAuth, requireRole("CLIENT"));
@@ -109,11 +115,19 @@ router.post("/days/:id/sessions/start", async (req, res) => {
   const session = await prisma.workoutSession.create({
     data: { dayId: day.id, userId: req.user!.id },
   });
+  sendPushToTrainers({
+    title: "Workout started",
+    body: `${req.user!.name} just started "${day.label}"`,
+    url: `/admin/groups/${day.week.plan.groupId}`,
+  }).catch(() => {});
   res.status(201).json(session);
 });
 
 router.post("/sessions/:id/finish", async (req, res) => {
-  const session = await prisma.workoutSession.findUnique({ where: { id: req.params.id } });
+  const session = await prisma.workoutSession.findUnique({
+    where: { id: req.params.id },
+    include: { day: { include: { week: { include: { plan: true } }, exercises: { include: { completions: { where: { userId: req.user!.id } } } } } } },
+  });
   if (!session || session.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
   const endedAt = new Date();
   const durationSeconds = Math.max(0, Math.round((endedAt.getTime() - session.startedAt.getTime()) / 1000));
@@ -121,6 +135,16 @@ router.post("/sessions/:id/finish", async (req, res) => {
     where: { id: session.id },
     data: { endedAt, durationSeconds },
   });
+
+  const total = session.day.exercises.length;
+  const done = session.day.exercises.filter((e) => e.completions.length > 0).length;
+  const allDone = total > 0 && done === total;
+  sendPushToTrainers({
+    title: allDone ? "Workout finished ✅" : "Workout finished ⚠️",
+    body: `${req.user!.name} finished "${session.day.label}" in ${formatDuration(durationSeconds)} — ${done}/${total} exercises${allDone ? "" : " (not all completed)"}`,
+    url: `/admin/groups/${session.day.week.plan.groupId}`,
+  }).catch(() => {});
+
   res.json(updated);
 });
 
