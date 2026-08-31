@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
+import ClientTabBar from "../../components/ClientTabBar";
 
 interface CompletionRow {
   id: string;
@@ -24,7 +25,7 @@ export default function History() {
   }, []);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell with-tabbar">
       <div className="topbar">
         <div>
           <button className="btn ghost" onClick={() => navigate("/")} style={{ padding: 0, marginBottom: 4 }}>
@@ -88,6 +89,7 @@ export default function History() {
           ))
         )}
       </div>
+      <ClientTabBar />
     </div>
   );
 }

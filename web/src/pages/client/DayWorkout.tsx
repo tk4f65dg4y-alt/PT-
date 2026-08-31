@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import RestTimer from "../../components/RestTimer";
+import MovementAnimation, { MovementPattern } from "../../components/MovementAnimation";
+import { burstConfetti } from "../../lib/confetti";
 
 interface Completion {
   id: string;
@@ -15,6 +17,7 @@ interface Exercise {
   restSeconds: number | null;
   notes: string | null;
   completions: Completion[];
+  libraryItem: { pattern: MovementPattern; cue: string } | null;
 }
 interface Day {
   id: string;
@@ -127,6 +130,10 @@ export default function DayWorkout() {
           })),
         };
       });
+      if (!nowDone && day) {
+        const willAllBeDone = day.exercises.every((e) => (e.id === ex.id ? true : e.completions.length > 0));
+        if (willAllBeDone) burstConfetti();
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -183,6 +190,7 @@ export default function DayWorkout() {
                 >
                   {isDone ? "✓" : ""}
                 </div>
+                {ex.libraryItem && <MovementAnimation pattern={ex.libraryItem.pattern} size={40} />}
                 <div style={{ flex: 1 }} onClick={() => setOpenTimerFor(openTimerFor === ex.id ? null : ex.id)}>
                   <div className={`exercise-name ${isDone ? "done" : ""}`}>{ex.name}</div>
                   <div className="exercise-meta">
@@ -200,7 +208,12 @@ export default function DayWorkout() {
                   ⏱
                 </button>
               </div>
-              {openTimerFor === ex.id && <RestTimer defaultSeconds={ex.restSeconds || 60} />}
+              {openTimerFor === ex.id && (
+                <>
+                  {ex.libraryItem?.cue && <div className="info-box">💡 {ex.libraryItem.cue}</div>}
+                  <RestTimer defaultSeconds={ex.restSeconds || 60} />
+                </>
+              )}
             </div>
           );
         })}

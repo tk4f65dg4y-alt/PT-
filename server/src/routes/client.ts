@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../db";
 import { requireAuth, requireRole } from "../auth";
+import { computeClientStats } from "../lib/stats";
+import { sendPushToUsers } from "../lib/push";
 
 const router = Router();
 router.use(requireAuth, requireRole("CLIENT"));
@@ -33,7 +35,7 @@ router.get("/plans/:id", async (req, res) => {
             include: {
               exercises: {
                 orderBy: { index: "asc" },
-                include: { completions: { where: { userId: req.user!.id } } },
+                include: { completions: { where: { userId: req.user!.id } }, libraryItem: true },
               },
               sessions: { where: { userId: req.user!.id } },
             },
@@ -129,6 +131,56 @@ router.get("/history", async (req, res) => {
     include: { day: { include: { week: { include: { plan: true } } } } },
   });
   res.json({ completions, sessions });
+});
+
+router.get("/stats", async (req, res) => {
+  const stats = await computeClientStats(req.user!.id);
+  res.json(stats);
+});
+
+// ---- Messaging (one thread per group, shared with any training partner) ----
+
+router.get("/messages", async (req, res) => {
+  const groupIds = await myGroupIds(req.user!.id);
+  const groupId = groupIds[0];
+  if (!groupId) return res.json([]);
+  const messages = await prisma.message.findMany({
+    where: { groupId },
+    orderBy: { createdAt: "asc" },
+    include: { sender: { select: { id: true, name: true, role: true } } },
+  });
+  await prisma.message.updateMany({
+    where: { groupId, senderId: { not: req.user!.id }, readAt: null },
+    data: { readAt: new Date() },
+  });
+  res.json(messages);
+});
+
+router.post("/messages", async (req, res) => {
+  const { body } = req.body || {};
+  if (!body || !String(body).trim()) return res.status(400).json({ error: "Message can't be empty" });
+  const groupIds = await myGroupIds(req.user!.id);
+  const groupId = groupIds[0];
+  if (!groupId) return res.status(400).json({ error: "No group" });
+
+  const message = await prisma.message.create({
+    data: { groupId, senderId: req.user!.id, body: String(body).trim() },
+    include: { sender: { select: { id: true, name: true, role: true } } },
+  });
+  const trainers = await prisma.user.findMany({ where: { role: "TRAINER" }, select: { id: true } });
+  sendPushToUsers(
+    trainers.map((t) => t.id),
+    { title: `Message from ${req.user!.name}`, body: message.body, url: "/admin" }
+  ).catch(() => {});
+  res.status(201).json(message);
+});
+
+router.get("/messages/unread-count", async (req, res) => {
+  const groupIds = await myGroupIds(req.user!.id);
+  const count = await prisma.message.count({
+    where: { groupId: { in: groupIds }, senderId: { not: req.user!.id }, readAt: null },
+  });
+  res.json({ count });
 });
 
 export default router;

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
+import Logo from "../../components/Logo";
+import EnableNotifications from "../../components/EnableNotifications";
 
 interface Member {
   id: string;
@@ -42,12 +44,14 @@ function initials(name: string) {
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
+  const [unreadByGroup, setUnreadByGroup] = useState<Record<string, number>>({});
   const [showAdd, setShowAdd] = useState(false);
   const [showPair, setShowPair] = useState(false);
   const [error, setError] = useState("");
 
   function load() {
     api.get("/admin/groups").then(setGroups).catch((e) => setError(e.message));
+    api.get("/admin/messages/unread-counts").then(setUnreadByGroup).catch(() => {});
   }
 
   useEffect(load, []);
@@ -57,9 +61,12 @@ export default function AdminDashboard() {
   return (
     <div className="app-shell wide">
       <div className="topbar">
-        <div>
-          <h1>PT Coach</h1>
-          <div className="sub">Admin · {user?.name}</div>
+        <div className="brand">
+          <Logo />
+          <div>
+            <h1>PT Coach</h1>
+            <div className="sub">Admin · {user?.name}</div>
+          </div>
         </div>
         <button className="btn ghost" onClick={() => logout()}>
           Log out
@@ -67,6 +74,7 @@ export default function AdminDashboard() {
       </div>
       <div className="content">
         {error && <div className="error-box">{error}</div>}
+        <EnableNotifications text="Get a push when a client messages you." />
         <div className="row" style={{ marginBottom: 16 }}>
           <button className="btn block" onClick={() => { setShowAdd((v) => !v); setShowPair(false); }}>
             + Add client
@@ -120,7 +128,10 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  {g.isPair && <span className="badge">Pair</span>}
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+                    {unreadByGroup[g.id] > 0 && <span className="badge count">{unreadByGroup[g.id]}</span>}
+                    {g.isPair && <span className="badge">Pair</span>}
+                  </div>
                   <div className="small muted" style={{ marginTop: 4 }}>
                     {timeAgo(g.lastActivityAt)}
                   </div>

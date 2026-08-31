@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../db";
 import { hashPassword, requireAuth, requireRole } from "../auth";
+import { computeClientStats } from "../lib/stats";
+import { sendPushToUsers } from "../lib/push";
 
 const router = Router();
 router.use(requireAuth, requireRole("TRAINER"));
@@ -156,6 +158,7 @@ router.post("/groups/:id/plans", async (req, res) => {
                   weight: e.weight ?? null,
                   restSeconds: e.restSeconds ?? null,
                   notes: e.notes ?? null,
+                  libraryItemId: e.libraryItemId ?? null,
                 })),
               },
             })),
@@ -179,7 +182,7 @@ router.get("/plans/:id", async (req, res) => {
           days: {
             orderBy: { index: "asc" },
             include: {
-              exercises: { orderBy: { index: "asc" }, include: { completions: true } },
+              exercises: { orderBy: { index: "asc" }, include: { completions: true, libraryItem: true } },
               sessions: true,
             },
           },
@@ -220,6 +223,7 @@ router.put("/plans/:id", async (req, res) => {
                     weight: e.weight ?? null,
                     restSeconds: e.restSeconds ?? null,
                     notes: e.notes ?? null,
+                    libraryItemId: e.libraryItemId ?? null,
                   })),
                 },
               })),
@@ -245,6 +249,76 @@ router.put("/plans/:id", async (req, res) => {
 
 router.delete("/plans/:id", async (req, res) => {
   await prisma.plan.delete({ where: { id: req.params.id } }).catch(() => {});
+  res.json({ ok: true });
+});
+
+// ---- Stats (streaks & badges) ----
+
+router.get("/groups/:groupId/stats/:userId", async (req, res) => {
+  const membership = await prisma.groupMember.findFirst({
+    where: { groupId: req.params.groupId, userId: req.params.userId },
+  });
+  if (!membership) return res.status(404).json({ error: "Not found" });
+  const stats = await computeClientStats(req.params.userId);
+  res.json(stats);
+});
+
+// ---- Messaging (one thread per group) ----
+
+router.get("/groups/:id/messages", async (req, res) => {
+  const messages = await prisma.message.findMany({
+    where: { groupId: req.params.id },
+    orderBy: { createdAt: "asc" },
+    include: { sender: { select: { id: true, name: true, role: true } } },
+  });
+  await prisma.message.updateMany({
+    where: { groupId: req.params.id, senderId: { not: req.user!.id }, readAt: null },
+    data: { readAt: new Date() },
+  });
+  res.json(messages);
+});
+
+router.post("/groups/:id/messages", async (req, res) => {
+  const { body } = req.body || {};
+  if (!body || !String(body).trim()) return res.status(400).json({ error: "Message can't be empty" });
+  const group = await prisma.group.findUnique({
+    where: { id: req.params.id },
+    include: { members: true },
+  });
+  if (!group) return res.status(404).json({ error: "Not found" });
+
+  const message = await prisma.message.create({
+    data: { groupId: group.id, senderId: req.user!.id, body: String(body).trim() },
+    include: { sender: { select: { id: true, name: true, role: true } } },
+  });
+  sendPushToUsers(
+    group.members.map((m) => m.userId),
+    { title: `New message from ${req.user!.name}`, body: message.body, url: "/messages" }
+  ).catch(() => {});
+  res.status(201).json(message);
+});
+
+router.get("/messages/unread-counts", async (req, res) => {
+  const rows = await prisma.message.groupBy({
+    by: ["groupId"],
+    where: { senderId: { not: req.user!.id }, readAt: null },
+    _count: { _all: true },
+  });
+  const counts: Record<string, number> = {};
+  for (const r of rows) counts[r.groupId] = r._count._all;
+  res.json(counts);
+});
+
+// ---- Nudge (manual push reminder) ----
+
+router.post("/groups/:id/nudge", async (req, res) => {
+  const group = await prisma.group.findUnique({ where: { id: req.params.id }, include: { members: true } });
+  if (!group) return res.status(404).json({ error: "Not found" });
+  const message = (req.body?.message as string) || "Your trainer just nudged you — time to get that workout in! 💪";
+  await sendPushToUsers(
+    group.members.map((m) => m.userId),
+    { title: "PT Coach", body: message, url: "/" }
+  );
   res.json({ ok: true });
 });
 

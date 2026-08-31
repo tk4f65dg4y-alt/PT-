@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
+import Logo from "../../components/Logo";
+import StreakBadges, { ClientStats } from "../../components/StreakBadges";
+import EnableNotifications from "../../components/EnableNotifications";
+import ClientTabBar from "../../components/ClientTabBar";
 
 interface Plan {
   id: string;
@@ -15,33 +19,36 @@ interface Plan {
 export default function ClientHome() {
   const { user, logout } = useAuth();
   const [plans, setPlans] = useState<Plan[] | null>(null);
+  const [stats, setStats] = useState<ClientStats | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api.get("/client/plans").then(setPlans).catch((e) => setError(e.message));
+    api.get("/client/stats").then(setStats).catch(() => {});
   }, []);
 
   const active = (plans || []).filter((p) => !p.archived);
   const archived = (plans || []).filter((p) => p.archived);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell with-tabbar">
       <div className="topbar">
-        <div>
-          <h1>Hey {user?.name?.split(" ")[0]} 👋</h1>
-          <div className="sub">Your training plans</div>
+        <div className="brand">
+          <Logo />
+          <div>
+            <h1>Hey {user?.name?.split(" ")[0]} 👋</h1>
+            <div className="sub">Your training plans</div>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Link className="btn ghost" to="/history">
-            History
-          </Link>
-          <button className="btn ghost" onClick={() => logout()}>
-            Log out
-          </button>
-        </div>
+        <button className="btn ghost" onClick={() => logout()}>
+          Log out
+        </button>
       </div>
       <div className="content">
         {error && <div className="error-box">{error}</div>}
+        <EnableNotifications />
+        {stats && <StreakBadges stats={stats} />}
+
         {plans === null ? (
           <div className="empty">Loading…</div>
         ) : active.length === 0 ? (
@@ -69,6 +76,7 @@ export default function ClientHome() {
           </>
         )}
       </div>
+      <ClientTabBar />
     </div>
   );
 }

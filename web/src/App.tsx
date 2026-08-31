@@ -10,6 +10,7 @@ import ClientHome from "./pages/client/ClientHome";
 import ClientPlanView from "./pages/client/PlanView";
 import DayWorkout from "./pages/client/DayWorkout";
 import History from "./pages/client/History";
+import Messages from "./pages/client/Messages";
 
 function Home() {
   const { user, loading } = useAuth();
@@ -46,6 +47,14 @@ export default function App() {
         element={
           <RequireAuth role="CLIENT">
             <History />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <RequireAuth role="CLIENT">
+            <Messages />
           </RequireAuth>
         }
       />

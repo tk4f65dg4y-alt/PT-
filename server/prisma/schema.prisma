@@ -12,6 +12,20 @@ enum Role {
   CLIENT
 }
 
+// Broad movement pattern a library exercise belongs to — drives which
+// animated demo is shown for it, since we don't host per-exercise video.
+enum MovementPattern {
+  SQUAT
+  HINGE
+  PUSH
+  PULL
+  LUNGE
+  CORE
+  CARRY
+  CARDIO
+  MOBILITY
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -20,10 +34,12 @@ model User {
   role         Role
   createdAt    DateTime @default(now())
 
-  groupMemberships GroupMember[]
+  groupMemberships  GroupMember[]
   completions       Completion[]
   sessions          WorkoutSession[]
-  createdPlans      Plan[]            @relation("PlanCreator")
+  createdPlans      Plan[]             @relation("PlanCreator")
+  sentMessages      Message[]          @relation("MessageSender")
+  pushSubscriptions PushSubscription[]
 }
 
 // A Group is the unit a plan is assigned to. Solo clients are a group of 1;
@@ -34,8 +50,9 @@ model Group {
   name      String
   createdAt DateTime @default(now())
 
-  members GroupMember[]
-  plans   Plan[]
+  members  GroupMember[]
+  plans    Plan[]
+  messages Message[]
 }
 
 model GroupMember {
@@ -65,20 +82,20 @@ model Plan {
 }
 
 model Week {
-  id      String  @id @default(cuid())
-  planId  String
-  index   Int
-  label   String?
+  id     String  @id @default(cuid())
+  planId String
+  index  Int
+  label  String?
 
   plan Plan  @relation(fields: [planId], references: [id], onDelete: Cascade)
   days Day[]
 }
 
 model Day {
-  id      String @id @default(cuid())
-  weekId  String
-  index   Int
-  label   String
+  id     String @id @default(cuid())
+  weekId String
+  index  Int
+  label  String
 
   week      Week             @relation(fields: [weekId], references: [id], onDelete: Cascade)
   exercises Exercise[]
@@ -86,18 +103,35 @@ model Day {
 }
 
 model Exercise {
-  id          String  @id @default(cuid())
-  dayId       String
-  index       Int
-  name        String
-  sets        Int?
-  reps        String?
-  weight      String?
-  restSeconds Int?
-  notes       String?
+  id            String  @id @default(cuid())
+  dayId         String
+  index         Int
+  name          String
+  sets          Int?
+  reps          String?
+  weight        String?
+  restSeconds   Int?
+  notes         String?
+  libraryItemId String?
 
-  day         Day          @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  day         Day                  @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  libraryItem ExerciseLibraryItem? @relation(fields: [libraryItemId], references: [id])
   completions Completion[]
+}
+
+// A small curated catalog the trainer can pick from when building a plan.
+// Gives every exercise a consistent movement-pattern animation and a form cue.
+model ExerciseLibraryItem {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  pattern     MovementPattern
+  muscles     String
+  cue         String
+  defaultSets Int?
+  defaultReps String?
+  defaultRest Int?
+
+  exercises Exercise[]
 }
 
 model Completion {
@@ -125,5 +159,30 @@ model WorkoutSession {
   durationSeconds Int?
 
   day  Day  @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// One chat thread per group (a solo client or a pair) between its member(s)
+// and the trainer.
+model Message {
+  id        String    @id @default(cuid())
+  groupId   String
+  senderId  String
+  body      String
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  group  Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender User  @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

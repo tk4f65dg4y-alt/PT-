@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
+import MovementAnimation, { MovementPattern } from "../../components/MovementAnimation";
+import PlanCalendar, { CalendarDay } from "../../components/PlanCalendar";
 
 interface Completion {
   id: string;
@@ -25,6 +27,7 @@ interface Exercise {
   weight: string | null;
   restSeconds: number | null;
   completions: Completion[];
+  libraryItem: { pattern: MovementPattern; cue: string } | null;
 }
 interface Day {
   id: string;
@@ -65,6 +68,7 @@ export default function PlanView() {
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [activeMember, setActiveMember] = useState<string>("");
   const [error, setError] = useState("");
+  const [view, setView] = useState<"list" | "calendar">("list");
 
   useEffect(() => {
     api
@@ -75,6 +79,19 @@ export default function PlanView() {
       })
       .catch((e) => setError(e.message));
   }, [id]);
+
+  const calendarDays: CalendarDay[] = useMemo(() => {
+    if (!plan?.startDate) return [];
+    const flat = plan.weeks.flatMap((w) => w.days);
+    const start = new Date(plan.startDate);
+    return flat.map((day, i) => {
+      const date = new Date(start);
+      date.setUTCDate(date.getUTCDate() + i);
+      const done =
+        day.exercises.length > 0 && day.exercises.every((e) => e.completions.some((c) => c.userId === activeMember));
+      return { date: date.toISOString().slice(0, 10), dayId: day.id, label: day.label, done, total: day.exercises.length };
+    });
+  }, [plan, activeMember]);
 
   async function archive() {
     if (!plan) return;
@@ -135,7 +152,30 @@ export default function PlanView() {
           </div>
         )}
 
-        {plan.weeks.map((week) => (
+        <div className="tabs">
+          <div className={`tab ${view === "list" ? "active" : ""}`} onClick={() => setView("list")}>
+            List
+          </div>
+          <div
+            className={`tab ${view === "calendar" ? "active" : ""}`}
+            onClick={() => plan.startDate && setView("calendar")}
+            style={{ opacity: plan.startDate ? 1 : 0.4 }}
+          >
+            Calendar
+          </div>
+        </div>
+
+        {view === "calendar" && (
+          plan.startDate ? (
+            <div className="card">
+              <PlanCalendar days={calendarDays} />
+            </div>
+          ) : (
+            <div className="empty">This plan has no start date, so a calendar view isn't available.</div>
+          )
+        )}
+
+        {view === "list" && plan.weeks.map((week) => (
           <div className="week-block" key={week.id}>
             <div className="week-title">{week.label}</div>
             {week.days.map((day) => {
@@ -168,6 +208,7 @@ export default function PlanView() {
                       return (
                         <div className="exercise-row" key={ex.id}>
                           <div className={`checkbox ${c ? "checked" : ""}`}>{c ? "✓" : ""}</div>
+                          {ex.libraryItem && <MovementAnimation pattern={ex.libraryItem.pattern} size={38} />}
                           <div style={{ flex: 1 }}>
                             <div className={`exercise-name ${c ? "done" : ""}`}>{ex.name}</div>
                             <div className="exercise-meta">

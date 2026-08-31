@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
+import ExercisePicker, { LibraryItem } from "../../components/ExercisePicker";
 
 interface ExerciseDraft {
   name: string;
@@ -9,6 +10,7 @@ interface ExerciseDraft {
   weight: string;
   restSeconds: string;
   notes: string;
+  libraryItemId: string | null;
 }
 interface DayDraft {
   label: string;
@@ -20,7 +22,7 @@ interface WeekDraft {
 }
 
 function emptyExercise(): ExerciseDraft {
-  return { name: "", sets: "3", reps: "10", weight: "", restSeconds: "60", notes: "" };
+  return { name: "", sets: "3", reps: "10", weight: "", restSeconds: "60", notes: "", libraryItemId: null };
 }
 function emptyDay(index: number): DayDraft {
   return { label: `Day ${index + 1}`, exercises: [emptyExercise()] };
@@ -38,6 +40,11 @@ export default function PlanBuilder() {
   const [weeks, setWeeks] = useState<WeekDraft[]>([emptyWeek(0)]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [library, setLibrary] = useState<LibraryItem[]>([]);
+
+  useEffect(() => {
+    api.get("/library").then(setLibrary).catch(() => {});
+  }, []);
 
   function updateWeek(wi: number, patch: Partial<WeekDraft>) {
     setWeeks((ws) => ws.map((w, i) => (i === wi ? { ...w, ...patch } : w)));
@@ -139,6 +146,7 @@ export default function PlanBuilder() {
                 weight: e.weight || null,
                 restSeconds: e.restSeconds ? Number(e.restSeconds) : null,
                 notes: e.notes || null,
+                libraryItemId: e.libraryItemId,
               })),
           })),
         })),
@@ -232,10 +240,19 @@ export default function PlanBuilder() {
                   <div key={ei} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid var(--border)" }}>
                     <div className="row">
                       <div className="field" style={{ marginBottom: 6 }}>
-                        <input
-                          placeholder="Exercise name"
+                        <ExercisePicker
+                          items={library}
                           value={ex.name}
-                          onChange={(e) => updateExercise(wi, di, ei, { name: e.target.value })}
+                          onChange={(name) => updateExercise(wi, di, ei, { name, libraryItemId: null })}
+                          onPick={(item) =>
+                            updateExercise(wi, di, ei, {
+                              name: item.name,
+                              libraryItemId: item.id,
+                              sets: item.defaultSets != null ? String(item.defaultSets) : ex.sets,
+                              reps: item.defaultReps || ex.reps,
+                              restSeconds: item.defaultRest != null ? String(item.defaultRest) : ex.restSeconds,
+                            })
+                          }
                         />
                       </div>
                       <button className="icon-btn" onClick={() => removeExercise(wi, di, ei)} title="Remove exercise">

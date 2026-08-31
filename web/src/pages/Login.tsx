@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
+import Logo from "../components/Logo";
 
 export default function Login() {
   const { login } = useAuth();
@@ -27,7 +28,10 @@ export default function Login() {
   return (
     <div className="login-wrap">
       <div className="card login-card">
-        <h1>💪 PT Coach</h1>
+        <div className="brand">
+          <Logo size={44} />
+        </div>
+        <h1>PT Coach</h1>
         <p className="sub muted">Sign in to your account</p>
         {error && <div className="error-box">{error}</div>}
         <form onSubmit={onSubmit}>

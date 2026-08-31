@@ -1,11 +1,16 @@
 import path from "path";
 import express from "express";
 import cookieParser from "cookie-parser";
+import cron from "node-cron";
 import { prisma } from "./db";
 import { hashPassword } from "./auth";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import clientRoutes from "./routes/client";
+import libraryRoutes from "./routes/library";
+import pushRoutes from "./routes/push";
+import { seedExerciseLibrary } from "./lib/exerciseLibrary";
+import { sendInactivityNudges } from "./lib/nudges";
 
 const app = express();
 app.use(express.json());
@@ -14,6 +19,8 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/client", clientRoutes);
+app.use("/api/library", libraryRoutes);
+app.use("/api/push", pushRoutes);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -65,7 +72,13 @@ async function applyAdminPasswordReset() {
 const PORT = Number(process.env.PORT) || 3000;
 bootstrapAdmin()
   .then(() => applyAdminPasswordReset())
-  .catch((err) => console.error("Failed to bootstrap/reset admin account", err))
+  .then(() => seedExerciseLibrary())
+  .catch((err) => console.error("Failed to bootstrap admin/library", err))
   .finally(() => {
     app.listen(PORT, () => console.log(`Server listening on :${PORT}`));
+    // Daily check for clients who've gone quiet — nudges them by push if
+    // they've enabled notifications. 15:00 UTC is an arbitrary fixed time.
+    cron.schedule("0 15 * * *", () => {
+      sendInactivityNudges().catch((err) => console.error("Inactivity nudge job failed", err));
+    });
   });
