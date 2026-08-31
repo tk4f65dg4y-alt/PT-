@@ -11,6 +11,7 @@ import libraryRoutes from "./routes/library";
 import pushRoutes from "./routes/push";
 import { seedExerciseLibrary } from "./lib/exerciseLibrary";
 import { sendInactivityNudges } from "./lib/nudges";
+import { seedHemaSanjPlan } from "./lib/seedHemaSanjPlan";
 
 const app = express();
 app.use(express.json());
@@ -73,6 +74,7 @@ const PORT = Number(process.env.PORT) || 3000;
 bootstrapAdmin()
   .then(() => applyAdminPasswordReset())
   .then(() => seedExerciseLibrary())
+  .then(() => seedHemaSanjPlan())
   .catch((err) => console.error("Failed to bootstrap admin/library", err))
   .finally(() => {
     app.listen(PORT, () => console.log(`Server listening on :${PORT}`));
