@@ -28,6 +28,18 @@ router.post("/clients", async (req, res) => {
   res.status(201).json({ user: { id: user.id, name: user.name, email: user.email }, groupId: group.id });
 });
 
+// Private trainer notes on a client — never exposed via the client API.
+router.put("/clients/:id/notes", async (req, res) => {
+  const { notes } = req.body || {};
+  const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+  if (!user || user.role !== "CLIENT") return res.status(404).json({ error: "Not found" });
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { notes: typeof notes === "string" ? notes : null },
+  });
+  res.json({ notes: updated.notes });
+});
+
 // ---- Groups (a "client" on the dashboard is a group of 1; a pair is a group of 2) ----
 
 router.get("/groups", async (_req, res) => {
@@ -118,7 +130,7 @@ router.get("/groups/:id", async (req, res) => {
   const group = await prisma.group.findUnique({
     where: { id: req.params.id },
     include: {
-      members: { include: { user: { select: { id: true, name: true, email: true } } } },
+      members: { include: { user: { select: { id: true, name: true, email: true, notes: true } } } },
       plans: { orderBy: { createdAt: "desc" } },
     },
   });
@@ -129,7 +141,7 @@ router.get("/groups/:id", async (req, res) => {
 // ---- Plans ----
 
 router.post("/groups/:id/plans", async (req, res) => {
-  const { title, notes, startDate, weeks } = req.body || {};
+  const { title, notes, startDate, expiresAt, priceLabel, weeks } = req.body || {};
   if (!title) return res.status(400).json({ error: "Title is required" });
   const group = await prisma.group.findUnique({ where: { id: req.params.id } });
   if (!group) return res.status(404).json({ error: "Group not found" });
@@ -140,6 +152,8 @@ router.post("/groups/:id/plans", async (req, res) => {
       title,
       notes: notes || null,
       startDate: startDate ? new Date(startDate) : null,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      priceLabel: priceLabel || null,
       createdById: req.user!.id,
       weeks: {
         create: (weeks || []).map((w: any, wi: number) => ({
@@ -195,7 +209,7 @@ router.get("/plans/:id", async (req, res) => {
 });
 
 router.put("/plans/:id", async (req, res) => {
-  const { title, notes, startDate, archived, weeks } = req.body || {};
+  const { title, notes, startDate, expiresAt, priceLabel, archived, weeks } = req.body || {};
   const existing = await prisma.plan.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: "Not found" });
 
@@ -240,6 +254,8 @@ router.put("/plans/:id", async (req, res) => {
       title: title ?? undefined,
       notes: notes === undefined ? undefined : notes,
       startDate: startDate === undefined ? undefined : startDate ? new Date(startDate) : null,
+      expiresAt: expiresAt === undefined ? undefined : expiresAt ? new Date(expiresAt) : null,
+      priceLabel: priceLabel === undefined ? undefined : priceLabel || null,
       archived: archived === undefined ? undefined : archived,
     },
     include: { weeks: { include: { days: { include: { exercises: true } } } } },
@@ -249,6 +265,16 @@ router.put("/plans/:id", async (req, res) => {
 
 router.delete("/plans/:id", async (req, res) => {
   await prisma.plan.delete({ where: { id: req.params.id } }).catch(() => {});
+  res.json({ ok: true });
+});
+
+// Wipes logged progress (checkmarks + workout timings) for this plan across
+// every member, without touching its structure — for restarting a cycle.
+router.post("/plans/:id/reset", async (req, res) => {
+  const plan = await prisma.plan.findUnique({ where: { id: req.params.id } });
+  if (!plan) return res.status(404).json({ error: "Not found" });
+  await prisma.completion.deleteMany({ where: { exercise: { day: { week: { planId: plan.id } } } } });
+  await prisma.workoutSession.deleteMany({ where: { day: { week: { planId: plan.id } } } });
   res.json({ ok: true });
 });
 
@@ -317,9 +343,43 @@ router.post("/groups/:id/nudge", async (req, res) => {
   const message = (req.body?.message as string) || "Your trainer just nudged you — time to get that workout in! 💪";
   await sendPushToUsers(
     group.members.map((m) => m.userId),
-    { title: "PT Coach", body: message, url: "/" }
+    { title: "Casey Bond PT", body: message, url: "/" }
   );
   res.json({ ok: true });
+});
+
+// ---- 1:1 session bookings ----
+
+router.get("/bookings", async (_req, res) => {
+  const bookings = await prisma.sessionBooking.findMany({
+    orderBy: [{ status: "asc" }, { startTime: "asc" }],
+    include: {
+      requestedBy: { select: { id: true, name: true } },
+      group: { select: { id: true, name: true } },
+    },
+  });
+  res.json(bookings);
+});
+
+router.post("/bookings/:id/respond", async (req, res) => {
+  const { status, trainerNote } = req.body || {};
+  if (!["CONFIRMED", "DECLINED"].includes(status)) {
+    return res.status(400).json({ error: "status must be CONFIRMED or DECLINED" });
+  }
+  const booking = await prisma.sessionBooking.findUnique({ where: { id: req.params.id } });
+  if (!booking) return res.status(404).json({ error: "Not found" });
+
+  const updated = await prisma.sessionBooking.update({
+    where: { id: booking.id },
+    data: { status, trainerNote: trainerNote ?? undefined, respondedAt: new Date() },
+  });
+  const when = new Date(booking.startTime).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  sendPushToUsers([booking.requestedById], {
+    title: status === "CONFIRMED" ? "Session confirmed ✅" : "Session request declined",
+    body: status === "CONFIRMED" ? `Your session on ${when} is confirmed.` : `Your request for ${when} was declined.`,
+    url: "/book",
+  }).catch(() => {});
+  res.json(updated);
 });
 
 export default router;

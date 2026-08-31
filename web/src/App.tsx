@@ -11,6 +11,8 @@ import ClientPlanView from "./pages/client/PlanView";
 import DayWorkout from "./pages/client/DayWorkout";
 import History from "./pages/client/History";
 import Messages from "./pages/client/Messages";
+import BookSession from "./pages/client/BookSession";
+import Bookings from "./pages/admin/Bookings";
 
 function Home() {
   const { user, loading } = useAuth();
@@ -58,6 +60,14 @@ export default function App() {
           </RequireAuth>
         }
       />
+      <Route
+        path="/book"
+        element={
+          <RequireAuth role="CLIENT">
+            <BookSession />
+          </RequireAuth>
+        }
+      />
 
       <Route
         path="/admin"
@@ -88,6 +98,22 @@ export default function App() {
         element={
           <RequireAuth role="TRAINER">
             <AdminPlanView />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/plans/:planId/edit"
+        element={
+          <RequireAuth role="TRAINER">
+            <PlanBuilder />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/bookings"
+        element={
+          <RequireAuth role="TRAINER">
+            <Bookings />
           </RequireAuth>
         }
       />

@@ -41,7 +41,7 @@ export async function sendInactivityNudges() {
     if (lastActive && lastActive > cutoff) continue;
 
     await sendPushToUser(client.id, {
-      title: "PT Coach",
+      title: "Casey Bond PT",
       body: "You haven't logged a workout in a couple of days — let's get back on track! 💪",
       url: "/",
     });

@@ -50,6 +50,8 @@ interface PlanData {
   title: string;
   notes: string | null;
   startDate: string | null;
+  expiresAt: string | null;
+  priceLabel: string | null;
   archived: boolean;
   group: { id: string; members: { user: Member }[] };
   weeks: Week[];
@@ -106,6 +108,16 @@ export default function PlanView() {
     navigate(`/admin/groups/${plan.group.id}`);
   }
 
+  async function resetProgress() {
+    if (!plan) return;
+    if (!confirm("Reset progress? This clears every checkmark and workout timing on this plan for all members — the plan itself stays the same.")) {
+      return;
+    }
+    await api.post(`/admin/plans/${plan.id}/reset`, {});
+    const fresh = await api.get(`/admin/plans/${plan.id}`);
+    setPlan(fresh);
+  }
+
   if (error) return <div className="content"><div className="error-box">{error}</div></div>;
   if (!plan) return <div className="empty">Loading…</div>;
 
@@ -124,7 +136,13 @@ export default function PlanView() {
           </button>
           <h1>{plan.title}</h1>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button className="btn secondary sm" onClick={() => navigate(`/admin/plans/${plan.id}/edit`)}>
+            ✏️ Edit
+          </button>
+          <button className="btn secondary sm" onClick={resetProgress}>
+            ↺ Reset progress
+          </button>
           <button className="btn secondary sm" onClick={archive}>
             {plan.archived ? "Unarchive" : "Archive"}
           </button>
@@ -134,8 +152,18 @@ export default function PlanView() {
         </div>
       </div>
       <div className="content">
-        {plan.notes && (
-          <div className="card small muted">{plan.notes}</div>
+        {(plan.notes || plan.priceLabel || plan.expiresAt) && (
+          <div className="card small">
+            {plan.notes && <div className="muted">{plan.notes}</div>}
+            {(plan.priceLabel || plan.expiresAt) && (
+              <div className="list-row" style={{ marginTop: plan.notes ? 8 : 0 }}>
+                {plan.priceLabel && <span className="badge accent">{plan.priceLabel}</span>}
+                {plan.expiresAt && (
+                  <span className="badge">Expires {new Date(plan.expiresAt).toLocaleDateString()}</span>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {members.length > 1 && (

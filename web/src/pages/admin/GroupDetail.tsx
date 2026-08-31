@@ -7,11 +7,14 @@ interface Member {
   id: string;
   name: string;
   email: string;
+  notes: string | null;
 }
 interface Plan {
   id: string;
   title: string;
   startDate: string | null;
+  expiresAt: string | null;
+  priceLabel: string | null;
   archived: boolean;
   createdAt: string;
 }
@@ -33,7 +36,7 @@ export default function GroupDetail() {
   const navigate = useNavigate();
   const [group, setGroup] = useState<GroupData | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"plans" | "progress" | "messages">("plans");
+  const [tab, setTab] = useState<"plans" | "progress" | "messages" | "notes">("plans");
   const [activeMember, setActiveMember] = useState("");
 
   useEffect(() => {
@@ -92,6 +95,9 @@ export default function GroupDetail() {
               <div className={`tab ${tab === "messages" ? "active" : ""}`} onClick={() => setTab("messages")}>
                 Messages
               </div>
+              <div className={`tab ${tab === "notes" ? "active" : ""}`} onClick={() => setTab("notes")}>
+                Notes 🔒
+              </div>
             </div>
 
             {tab === "plans" && (
@@ -109,9 +115,15 @@ export default function GroupDetail() {
                           <div style={{ fontWeight: 700 }}>{p.title}</div>
                           <div className="small muted">
                             {p.startDate ? `Starts ${new Date(p.startDate).toLocaleDateString()}` : "No start date"}
+                            {p.priceLabel && ` · ${p.priceLabel}`}
                           </div>
                         </div>
-                        {p.archived && <span className="badge">Archived</span>}
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {p.expiresAt && (
+                            <span className="badge">Expires {new Date(p.expiresAt).toLocaleDateString()}</span>
+                          )}
+                          {p.archived && <span className="badge">Archived</span>}
+                        </div>
                       </div>
                     </Link>
                   ))
@@ -139,9 +151,54 @@ export default function GroupDetail() {
             )}
 
             {tab === "messages" && <GroupChat groupId={group.id} />}
+
+            {tab === "notes" && (
+              <>
+                <div className="info-box">Private notes — only you see these, never the client.</div>
+                {group.members.map((m) => (
+                  <MemberNotes key={m.id} member={m} />
+                ))}
+              </>
+            )}
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function MemberNotes({ member }: { member: Member }) {
+  const [notes, setNotes] = useState(member.notes || "");
+  const [saved, setSaved] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    try {
+      await api.put(`/admin/clients/${member.id}/notes`, { notes });
+      setSaved(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <div className="small muted" style={{ marginBottom: 6, fontWeight: 700 }}>
+        {member.name}
+      </div>
+      <textarea
+        value={notes}
+        onChange={(e) => {
+          setNotes(e.target.value);
+          setSaved(false);
+        }}
+        placeholder="Injuries, goals, preferences, anything worth remembering…"
+        style={{ minHeight: 90 }}
+      />
+      <button className="btn secondary sm" style={{ marginTop: 8 }} onClick={save} disabled={busy || saved}>
+        {busy ? "Saving…" : saved ? "Saved" : "Save note"}
+      </button>
     </div>
   );
 }

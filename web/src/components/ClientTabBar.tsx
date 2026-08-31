@@ -25,6 +25,7 @@ export default function ClientTabBar() {
 
   const items = [
     { path: "/", icon: "🏠", label: "Home" },
+    { path: "/book", icon: "📅", label: "Book" },
     { path: "/messages", icon: "💬", label: "Messages", dot: unread > 0 },
     { path: "/history", icon: "📈", label: "History" },
   ];

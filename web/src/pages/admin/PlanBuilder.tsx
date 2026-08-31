@@ -32,19 +32,57 @@ function emptyWeek(index: number): WeekDraft {
 }
 
 export default function PlanBuilder() {
-  const { groupId } = useParams();
+  const { groupId, planId } = useParams();
+  const editing = Boolean(planId);
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [priceLabel, setPriceLabel] = useState("");
   const [weeks, setWeeks] = useState<WeekDraft[]>([emptyWeek(0)]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(editing);
   const [library, setLibrary] = useState<LibraryItem[]>([]);
+  const [groupIdForSave, setGroupIdForSave] = useState(groupId);
 
   useEffect(() => {
     api.get("/library").then(setLibrary).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!planId) return;
+    api
+      .get(`/admin/plans/${planId}`)
+      .then((plan) => {
+        setTitle(plan.title);
+        setNotes(plan.notes || "");
+        setStartDate(plan.startDate ? plan.startDate.slice(0, 10) : "");
+        setExpiresAt(plan.expiresAt ? plan.expiresAt.slice(0, 10) : "");
+        setPriceLabel(plan.priceLabel || "");
+        setGroupIdForSave(plan.group.id);
+        setWeeks(
+          plan.weeks.map((w: any) => ({
+            label: w.label,
+            days: w.days.map((d: any) => ({
+              label: d.label,
+              exercises: d.exercises.map((e: any) => ({
+                name: e.name,
+                sets: e.sets != null ? String(e.sets) : "",
+                reps: e.reps || "",
+                weight: e.weight || "",
+                restSeconds: e.restSeconds != null ? String(e.restSeconds) : "",
+                notes: e.notes || "",
+                libraryItemId: e.libraryItemId,
+              })),
+            })),
+          }))
+        );
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [planId]);
 
   function updateWeek(wi: number, patch: Partial<WeekDraft>) {
     setWeeks((ws) => ws.map((w, i) => (i === wi ? { ...w, ...patch } : w)));
@@ -133,6 +171,8 @@ export default function PlanBuilder() {
         title,
         notes,
         startDate: startDate || null,
+        expiresAt: expiresAt || null,
+        priceLabel: priceLabel || null,
         weeks: weeks.map((w) => ({
           label: w.label,
           days: w.days.map((d) => ({
@@ -151,7 +191,9 @@ export default function PlanBuilder() {
           })),
         })),
       };
-      const plan = await api.post(`/admin/groups/${groupId}/plans`, payload);
+      const plan = editing
+        ? await api.put(`/admin/plans/${planId}`, payload)
+        : await api.post(`/admin/groups/${groupIdForSave}/plans`, payload);
       navigate(`/admin/plans/${plan.id}`);
     } catch (err: any) {
       setError(err.message);
@@ -160,6 +202,8 @@ export default function PlanBuilder() {
     }
   }
 
+  if (loading) return <div className="empty">Loading…</div>;
+
   return (
     <div className="app-shell wide">
       <div className="topbar">
@@ -167,11 +211,17 @@ export default function PlanBuilder() {
           <button className="btn ghost" onClick={() => navigate(-1)} style={{ padding: 0, marginBottom: 4 }}>
             ← Back
           </button>
-          <h1>New plan</h1>
+          <h1>{editing ? "Edit plan" : "New plan"}</h1>
         </div>
       </div>
       <div className="content">
         {error && <div className="error-box">{error}</div>}
+        {editing && (
+          <div className="info-box">
+            Saving changes here replaces this plan's exercises — any progress already logged against them will be
+            cleared.
+          </div>
+        )}
         <div className="card">
           <div className="field">
             <label>Plan title</label>
@@ -182,6 +232,18 @@ export default function PlanBuilder() {
               <label>Start date</label>
               <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
+            <div className="field">
+              <label>Expires</label>
+              <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+            </div>
+          </div>
+          <div className="field">
+            <label>Price (optional)</label>
+            <input
+              value={priceLabel}
+              onChange={(e) => setPriceLabel(e.target.value)}
+              placeholder="e.g. £120 / 8 weeks"
+            />
           </div>
           <div className="field">
             <label>Notes for client (optional)</label>
@@ -310,7 +372,7 @@ export default function PlanBuilder() {
 
         <div style={{ height: 12 }} />
         <button className="btn block" onClick={submit} disabled={busy}>
-          {busy ? "Saving…" : "Save & assign plan"}
+          {busy ? "Saving…" : editing ? "Save changes" : "Save & assign plan"}
         </button>
       </div>
     </div>

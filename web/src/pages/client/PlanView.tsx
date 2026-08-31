@@ -22,6 +22,8 @@ interface PlanData {
   title: string;
   notes: string | null;
   startDate: string | null;
+  expiresAt: string | null;
+  priceLabel: string | null;
   weeks: Week[];
 }
 
@@ -62,7 +64,19 @@ export default function ClientPlanView() {
         </div>
       </div>
       <div className="content">
-        {plan.notes && <div className="card small">{plan.notes}</div>}
+        {(plan.notes || plan.priceLabel || plan.expiresAt) && (
+          <div className="card small">
+            {plan.notes && <div>{plan.notes}</div>}
+            {(plan.priceLabel || plan.expiresAt) && (
+              <div className="list-row" style={{ marginTop: plan.notes ? 8 : 0 }}>
+                {plan.priceLabel && <span className="badge accent">{plan.priceLabel}</span>}
+                {plan.expiresAt && (
+                  <span className="badge">Expires {new Date(plan.expiresAt).toLocaleDateString()}</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="tabs">
           <div className={`tab ${view === "list" ? "active" : ""}`} onClick={() => setView("list")}>

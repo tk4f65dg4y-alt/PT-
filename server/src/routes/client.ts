@@ -17,7 +17,16 @@ router.get("/plans", async (req, res) => {
   const plans = await prisma.plan.findMany({
     where: { groupId: { in: groupIds } },
     orderBy: { createdAt: "desc" },
-    select: { id: true, title: true, notes: true, startDate: true, archived: true, createdAt: true },
+    select: {
+      id: true,
+      title: true,
+      notes: true,
+      startDate: true,
+      expiresAt: true,
+      priceLabel: true,
+      archived: true,
+      createdAt: true,
+    },
   });
   res.json(plans);
 });
@@ -181,6 +190,54 @@ router.get("/messages/unread-count", async (req, res) => {
     where: { groupId: { in: groupIds }, senderId: { not: req.user!.id }, readAt: null },
   });
   res.json({ count });
+});
+
+// ---- 1:1 session bookings ----
+
+router.get("/bookings", async (req, res) => {
+  const groupIds = await myGroupIds(req.user!.id);
+  const bookings = await prisma.sessionBooking.findMany({
+    where: { groupId: { in: groupIds } },
+    orderBy: { startTime: "asc" },
+    include: { requestedBy: { select: { id: true, name: true } } },
+  });
+  res.json(bookings);
+});
+
+router.post("/bookings", async (req, res) => {
+  const { startTime, clientNote } = req.body || {};
+  if (!startTime) return res.status(400).json({ error: "startTime is required" });
+  const groupIds = await myGroupIds(req.user!.id);
+  const groupId = groupIds[0];
+  if (!groupId) return res.status(400).json({ error: "No group" });
+
+  const booking = await prisma.sessionBooking.create({
+    data: {
+      groupId,
+      requestedById: req.user!.id,
+      startTime: new Date(startTime),
+      clientNote: clientNote || null,
+    },
+    include: { requestedBy: { select: { id: true, name: true } } },
+  });
+  const trainers = await prisma.user.findMany({ where: { role: "TRAINER" }, select: { id: true } });
+  const when = new Date(booking.startTime).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  sendPushToUsers(
+    trainers.map((t) => t.id),
+    { title: "New session request", body: `${req.user!.name} requested ${when}`, url: "/admin/bookings" }
+  ).catch(() => {});
+  res.status(201).json(booking);
+});
+
+router.post("/bookings/:id/cancel", async (req, res) => {
+  const groupIds = await myGroupIds(req.user!.id);
+  const booking = await prisma.sessionBooking.findUnique({ where: { id: req.params.id } });
+  if (!booking || !groupIds.includes(booking.groupId)) return res.status(404).json({ error: "Not found" });
+  const updated = await prisma.sessionBooking.update({
+    where: { id: booking.id },
+    data: { status: "CANCELLED", respondedAt: new Date() },
+  });
+  res.json(updated);
 });
 
 export default router;

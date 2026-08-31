@@ -24,20 +24,35 @@ export interface ClientStats {
 }
 
 export async function computeClientStats(userId: string): Promise<ClientStats> {
-  const [completions, sessions] = await Promise.all([
-    prisma.completion.findMany({ where: { userId }, select: { completedAt: true } }),
-    prisma.workoutSession.findMany({ where: { userId }, select: { startedAt: true } }),
-  ]);
+  // A day only counts toward the streak once every exercise in it is
+  // checked off — partial progress doesn't move the streak.
+  const exercises = await prisma.exercise.findMany({
+    where: { day: { week: { plan: { group: { members: { some: { userId } } } } } } },
+    select: {
+      dayId: true,
+      completions: { where: { userId }, select: { completedAt: true } },
+    },
+  });
+
+  const byDay = new Map<string, { total: number; done: number; latest: Date | null }>();
+  for (const ex of exercises) {
+    const entry = byDay.get(ex.dayId) || { total: 0, done: 0, latest: null };
+    entry.total += 1;
+    if (ex.completions.length > 0) {
+      entry.done += 1;
+      const c = ex.completions[0].completedAt;
+      if (!entry.latest || c > entry.latest) entry.latest = c;
+    }
+    byDay.set(ex.dayId, entry);
+  }
 
   const activeDays = new Set<string>();
   let lastActiveAt: Date | null = null;
-  for (const c of completions) {
-    activeDays.add(dateKey(c.completedAt));
-    if (!lastActiveAt || c.completedAt > lastActiveAt) lastActiveAt = c.completedAt;
-  }
-  for (const s of sessions) {
-    activeDays.add(dateKey(s.startedAt));
-    if (!lastActiveAt || s.startedAt > lastActiveAt) lastActiveAt = s.startedAt;
+  for (const entry of byDay.values()) {
+    if (entry.total > 0 && entry.done === entry.total && entry.latest) {
+      activeDays.add(dateKey(entry.latest));
+      if (!lastActiveAt || entry.latest > lastActiveAt) lastActiveAt = entry.latest;
+    }
   }
 
   const sortedDayTimes = [...activeDays]
@@ -63,7 +78,7 @@ export async function computeClientStats(userId: string): Promise<ClientStats> {
   const todayKey = dateKey(new Date());
   let cursor = Date.parse(`${todayKey}T00:00:00Z`);
   if (!activeDays.has(dateKey(new Date(cursor)))) {
-    cursor -= DAY_MS; // today not logged yet — start checking from yesterday
+    cursor -= DAY_MS; // today not finished yet — start checking from yesterday
   }
   while (activeDays.has(dateKey(new Date(cursor)))) {
     currentStreak += 1;
@@ -71,49 +86,49 @@ export async function computeClientStats(userId: string): Promise<ClientStats> {
   }
 
   const totalWorkouts = activeDays.size;
-  const totalExercises = completions.length;
+  const totalExercises = await prisma.completion.count({ where: { userId } });
 
   const badges: Badge[] = [
     {
       id: "first-workout",
       icon: "🎉",
       label: "First workout",
-      description: "Complete your first exercise",
-      earned: totalExercises >= 1,
+      description: "Complete every exercise in a workout",
+      earned: totalWorkouts >= 1,
     },
     {
       id: "streak-3",
       icon: "🔥",
       label: "3-day streak",
-      description: "Train 3 days in a row",
+      description: "Complete workouts 3 days in a row",
       earned: longestStreak >= 3,
     },
     {
       id: "streak-7",
       icon: "🔥",
       label: "Week of fire",
-      description: "Train 7 days in a row",
+      description: "Complete workouts 7 days in a row",
       earned: longestStreak >= 7,
     },
     {
       id: "streak-14",
       icon: "🏆",
       label: "Unstoppable",
-      description: "Train 14 days in a row",
+      description: "Complete workouts 14 days in a row",
       earned: longestStreak >= 14,
     },
     {
       id: "workouts-10",
       icon: "💪",
       label: "10 workouts",
-      description: "Log 10 workout days",
+      description: "Fully complete 10 workout days",
       earned: totalWorkouts >= 10,
     },
     {
       id: "workouts-25",
       icon: "🥇",
       label: "25 workouts",
-      description: "Log 25 workout days",
+      description: "Fully complete 25 workout days",
       earned: totalWorkouts >= 25,
     },
     {

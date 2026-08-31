@@ -31,8 +31,8 @@ export default function Login() {
         <div className="brand">
           <Logo size={44} />
         </div>
-        <h1>PT Coach</h1>
-        <p className="sub muted">Sign in to your account</p>
+        <h1>Casey Bond</h1>
+        <p className="sub muted">Personal Training — sign in to your account</p>
         {error && <div className="error-box">{error}</div>}
         <form onSubmit={onSubmit}>
           <div className="field">

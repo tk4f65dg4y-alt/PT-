@@ -12,6 +12,13 @@ enum Role {
   CLIENT
 }
 
+enum BookingStatus {
+  REQUESTED
+  CONFIRMED
+  DECLINED
+  CANCELLED
+}
+
 // Broad movement pattern a library exercise belongs to — drives which
 // animated demo is shown for it, since we don't host per-exercise video.
 enum MovementPattern {
@@ -32,6 +39,7 @@ model User {
   passwordHash String
   name         String
   role         Role
+  notes        String? // trainer-private notes (goals, injuries, preferences) — never exposed to the client
   createdAt    DateTime @default(now())
 
   groupMemberships  GroupMember[]
@@ -40,6 +48,7 @@ model User {
   createdPlans      Plan[]             @relation("PlanCreator")
   sentMessages      Message[]          @relation("MessageSender")
   pushSubscriptions PushSubscription[]
+  bookingsRequested SessionBooking[]   @relation("BookingRequester")
 }
 
 // A Group is the unit a plan is assigned to. Solo clients are a group of 1;
@@ -53,6 +62,7 @@ model Group {
   members  GroupMember[]
   plans    Plan[]
   messages Message[]
+  bookings SessionBooking[]
 }
 
 model GroupMember {
@@ -72,6 +82,8 @@ model Plan {
   title       String
   notes       String?
   startDate   DateTime?
+  expiresAt   DateTime?
+  priceLabel  String? // free-text, e.g. "£120 / 8 weeks" — displayed to the client too
   archived    Boolean   @default(false)
   createdAt   DateTime  @default(now())
   createdById String
@@ -174,6 +186,23 @@ model Message {
 
   group  Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
   sender User  @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+// A client's request to book a 1:1 session with the trainer. Simple
+// request/respond flow — no availability calendar yet.
+model SessionBooking {
+  id            String        @id @default(cuid())
+  groupId       String
+  requestedById String
+  startTime     DateTime
+  status        BookingStatus @default(REQUESTED)
+  clientNote    String?
+  trainerNote   String?
+  createdAt     DateTime      @default(now())
+  respondedAt   DateTime?
+
+  group       Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  requestedBy User  @relation("BookingRequester", fields: [requestedById], references: [id], onDelete: Cascade)
 }
 
 model PushSubscription {

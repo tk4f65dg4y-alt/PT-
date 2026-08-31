@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/AuthContext";
 import Logo from "../../components/Logo";
@@ -43,8 +43,10 @@ function initials(name: string) {
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [groups, setGroups] = useState<GroupSummary[] | null>(null);
   const [unreadByGroup, setUnreadByGroup] = useState<Record<string, number>>({});
+  const [pendingBookings, setPendingBookings] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
   const [showPair, setShowPair] = useState(false);
   const [error, setError] = useState("");
@@ -52,6 +54,10 @@ export default function AdminDashboard() {
   function load() {
     api.get("/admin/groups").then(setGroups).catch((e) => setError(e.message));
     api.get("/admin/messages/unread-counts").then(setUnreadByGroup).catch(() => {});
+    api
+      .get("/admin/bookings")
+      .then((rows) => setPendingBookings(rows.filter((b: any) => b.status === "REQUESTED").length))
+      .catch(() => {});
   }
 
   useEffect(load, []);
@@ -64,13 +70,19 @@ export default function AdminDashboard() {
         <div className="brand">
           <Logo />
           <div>
-            <h1>PT Coach</h1>
-            <div className="sub">Admin · {user?.name}</div>
+            <h1>Casey Bond</h1>
+            <div className="sub">Personal Training · Admin · {user?.name}</div>
           </div>
         </div>
-        <button className="btn ghost" onClick={() => logout()}>
-          Log out
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button className="btn secondary sm" onClick={() => navigate("/admin/bookings")}>
+            🔔 Bookings
+            {pendingBookings > 0 && <span className="badge count">{pendingBookings}</span>}
+          </button>
+          <button className="btn ghost" onClick={() => logout()}>
+            Log out
+          </button>
+        </div>
       </div>
       <div className="content">
         {error && <div className="error-box">{error}</div>}

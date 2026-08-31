@@ -1,14 +1,17 @@
-# PT Coach
+# Casey Bond Personal Training
 
-A workout tracking app for personal trainers. The trainer (admin) creates
-clients, builds workout plans (weeks → days → exercises) by picking from a
-built-in exercise library or typing their own, and assigns them to a client
-or a pair of clients training together. Clients log in (installable as an
-app on their phone), see their plan as a list or a calendar, tick off
-exercises as they complete them, use a built-in rest timer and workout
-stopwatch, message their trainer, and build up a streak with badges. The
-trainer's dashboard shows who's done what and when, per-member progress and
-streaks, a chat thread per client/pair, and a one-tap "nudge" push
+A workout tracking app for personal trainers (product/repo name: PT Coach).
+The trainer (admin) creates clients, builds workout plans (weeks → days →
+exercises) by picking from a built-in exercise library or typing their own —
+including a price and expiry date — and assigns them to a client or a pair
+of clients training together, then edits or resets that plan any time.
+Clients log in (installable as an app on their phone), see their plan as a
+list or a calendar, tick off exercises as they complete them, use a built-in
+rest timer and workout stopwatch, message their trainer, request 1:1
+sessions, and build up a streak with badges (only for fully-completed
+workouts). The trainer's dashboard shows who's done what and when,
+per-member progress and streaks, private notes per client, a chat thread per
+client/pair, pending session requests, and a one-tap "nudge" push
 notification.
 
 ## Stack
@@ -30,7 +33,12 @@ notification.
 - A **WorkoutSession** records how long a client spent on a given day's workout (via the built-in stopwatch).
 - A **Message** thread is shared per group (so a pair and the trainer see the same conversation).
 - A **PushSubscription** stores a device's Web Push subscription, used for manual "nudge"
-  pushes, new-message pushes, and a daily automatic nudge to clients inactive 40+ hours.
+  pushes, new-message pushes, session-booking pushes, and a daily automatic nudge to clients
+  inactive 40+ hours.
+- A **SessionBooking** is a client's request for a 1:1 session (date/time + optional note);
+  the trainer confirms or declines it from an admin bookings page.
+- `User.notes` is a trainer-private free-text field per client (goals, injuries, preferences) —
+  never returned by any client-facing endpoint.
 
 ## Feature notes
 
@@ -43,8 +51,13 @@ notification.
 - **Push notifications**: real Web Push (no third-party service/API key — just a
   self-generated VAPID key pair). A client or trainer taps "Enable" once per device to opt
   in. Needs `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` set (see below) — silently disabled otherwise.
-- **Streaks & badges**: computed on the fly from completion/session timestamps, not stored —
-  always accurate, nothing to migrate if the badge list changes.
+- **Streaks & badges**: computed on the fly, not stored. A day only counts once *every*
+  exercise in it is checked off — partial progress doesn't move the streak.
+- **Edit plan**: the plan builder doubles as an editor (`/admin/plans/:id/edit`) — change,
+  add or remove exercises/days/weeks and price/expiry any time. Saving a structural edit
+  replaces the plan's exercises, which clears logged progress against them (a client
+  starting a new cycle). To just clear progress on an unchanged plan, use "Reset progress"
+  on the plan page instead — same underlying idea, no editing required.
 
 ## Local development
 

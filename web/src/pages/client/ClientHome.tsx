@@ -12,8 +12,19 @@ interface Plan {
   title: string;
   notes: string | null;
   startDate: string | null;
+  expiresAt: string | null;
+  priceLabel: string | null;
   archived: boolean;
   createdAt: string;
+}
+
+function expiryInfo(expiresAt: string | null) {
+  if (!expiresAt) return null;
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  if (days < 0) return { text: "Expired", cls: "warn" };
+  if (days === 0) return { text: "Expires today", cls: "warn" };
+  if (days <= 7) return { text: `Expires in ${days}d`, cls: "warn" };
+  return { text: `Expires ${new Date(expiresAt).toLocaleDateString()}`, cls: "" };
 }
 
 export default function ClientHome() {
@@ -37,7 +48,7 @@ export default function ClientHome() {
           <Logo />
           <div>
             <h1>Hey {user?.name?.split(" ")[0]} 👋</h1>
-            <div className="sub">Your training plans</div>
+            <div className="sub">Casey Bond Personal Training</div>
           </div>
         </div>
         <button className="btn ghost" onClick={() => logout()}>
@@ -54,15 +65,22 @@ export default function ClientHome() {
         ) : active.length === 0 ? (
           <div className="empty">No plan assigned yet — check back soon!</div>
         ) : (
-          active.map((p) => (
-            <Link key={p.id} to={`/plans/${p.id}`} className="card tap" style={{ display: "block" }}>
-              <div style={{ fontWeight: 800, fontSize: 17 }}>{p.title}</div>
-              {p.startDate && (
-                <div className="small muted">Started {new Date(p.startDate).toLocaleDateString()}</div>
-              )}
-              {p.notes && <div className="small" style={{ marginTop: 6 }}>{p.notes}</div>}
-            </Link>
-          ))
+          active.map((p) => {
+            const expiry = expiryInfo(p.expiresAt);
+            return (
+              <Link key={p.id} to={`/plans/${p.id}`} className="card tap" style={{ display: "block" }}>
+                <div className="list-row">
+                  <div style={{ fontWeight: 800, fontSize: 17 }}>{p.title}</div>
+                  {expiry && <span className={`badge ${expiry.cls}`}>{expiry.text}</span>}
+                </div>
+                {p.startDate && (
+                  <div className="small muted">Started {new Date(p.startDate).toLocaleDateString()}</div>
+                )}
+                {p.priceLabel && <div className="small muted">{p.priceLabel}</div>}
+                {p.notes && <div className="small" style={{ marginTop: 6 }}>{p.notes}</div>}
+              </Link>
+            );
+          })
         )}
 
         {archived.length > 0 && (
