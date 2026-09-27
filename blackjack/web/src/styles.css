@@ -702,11 +702,13 @@ button {
   align-self: center;
 }
 
-.bet-controls {
+/* ---------- Betting area (felt betting circles + chip tray) ---------- */
+
+.betting-area {
   background: var(--panel);
   border: 1px solid rgba(212, 175, 55, 0.25);
   border-radius: 12px;
-  padding: 12px 16px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -722,6 +724,75 @@ button {
 .bet-timer {
   color: var(--felt-edge);
 }
+
+.bet-spots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.bet-spot {
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.15));
+  border: 2px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  color: var(--ink-dim);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.bet-spot:active {
+  transform: scale(0.96);
+}
+.bet-spot-side {
+  width: 58px;
+  height: 58px;
+}
+.bet-spot-main {
+  width: 92px;
+  height: 92px;
+}
+.bet-spot-filled {
+  border-style: solid;
+  background: radial-gradient(circle at 35% 30%, rgba(232, 193, 88, 0.18), rgba(0, 0, 0, 0.15));
+}
+.bet-spot-focused {
+  border-color: var(--felt-edge);
+  box-shadow: 0 0 0 3px rgba(232, 193, 88, 0.2), 0 0 16px rgba(232, 193, 88, 0.4);
+}
+.bet-spot-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--felt-edge);
+  font-variant-numeric: tabular-nums;
+}
+.bet-spot-side .bet-spot-amount {
+  font-size: 14px;
+}
+.bet-spot-empty {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.3);
+}
+.bet-spot-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--ink-dim);
+  text-align: center;
+  line-height: 1.1;
+  padding: 0 4px;
+}
+
+.bet-hint {
+  font-size: 11px;
+  color: var(--ink-dim);
+  font-style: italic;
+}
+
 .chip-tray {
   display: flex;
   gap: 8px;
@@ -734,71 +805,10 @@ button {
 .bet-limits {
   font-size: 11px;
   color: var(--ink-dim);
-}
-
-/* ---------- Side bets ---------- */
-
-.side-bet-toggle {
-  align-self: center;
-}
-.side-bet-controls {
-  background: var(--panel);
-  border: 1px solid rgba(212, 175, 55, 0.25);
-  border-radius: 12px;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: min(340px, 100%);
-}
-.side-bet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--felt-edge);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.side-bet-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-.side-bet-row:first-of-type {
-  border-top: none;
-  padding-top: 0;
-}
-.side-bet-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.side-bet-name {
-  font-size: 13px;
-  font-weight: 600;
-}
-.side-bet-blurb {
-  font-size: 10px;
-  color: var(--ink-dim);
-  white-space: normal;
-}
-.side-bet-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-.side-bet-amount {
-  min-width: 22px;
   text-align: center;
-  font-weight: 700;
+}
+.bet-limits strong {
   color: var(--felt-edge);
-  font-size: 13px;
 }
 
 .side-bet-tags {

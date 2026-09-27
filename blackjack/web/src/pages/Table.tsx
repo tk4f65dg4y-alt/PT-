@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { ActionBar } from "../components/ActionBar";
-import { BetControls } from "../components/BetControls";
+import { BettingArea } from "../components/BettingArea";
 import { DealerArea } from "../components/DealerArea";
 import { DealerCustomizeModal } from "../components/DealerCustomizeModal";
 import { InsurancePrompt } from "../components/InsurancePrompt";
 import { Seat } from "../components/Seat";
-import { SideBetControls } from "../components/SideBetControls";
 import { useTable } from "../lib/useTable";
 import { SEAT_COUNT, SIDE_BET_MAX } from "../types";
 
@@ -163,25 +162,17 @@ function TableRoom({ code, name }: { code: string; name: string }) {
         )}
 
         {state.phase === "betting" && yourPlayer && !yourPlayer.sittingOut && yourPlayer.hands.length === 0 && (
-          <>
-            <BetControls
-              currentBet={yourPlayer.pendingBet}
-              chips={yourPlayer.chips}
-              minBet={state.minBet}
-              maxBet={state.maxBet}
-              bettingDeadline={state.bettingDeadline}
-              onBet={(amount) => send({ type: "placeBet", amount })}
-            />
-            {yourPlayer.pendingBet >= state.minBet && (
-              <SideBetControls
-                sideBets={yourPlayer.sideBets}
-                chips={yourPlayer.chips}
-                currentBet={yourPlayer.pendingBet}
-                maxSideBet={SIDE_BET_MAX}
-                onSideBet={(key, amount) => send({ type: "placeSideBet", key, amount })}
-              />
-            )}
-          </>
+          <BettingArea
+            currentBet={yourPlayer.pendingBet}
+            sideBets={yourPlayer.sideBets}
+            chips={yourPlayer.chips}
+            minBet={state.minBet}
+            maxBet={state.maxBet}
+            maxSideBet={SIDE_BET_MAX}
+            bettingDeadline={state.bettingDeadline}
+            onBet={(amount) => send({ type: "placeBet", amount })}
+            onSideBet={(key, amount) => send({ type: "placeSideBet", key, amount })}
+          />
         )}
 
         {yourTurn && yourPlayer && (
