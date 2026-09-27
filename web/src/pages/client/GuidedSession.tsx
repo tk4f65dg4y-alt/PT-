@@ -7,6 +7,11 @@ import CheckInModal from "../../components/CheckInModal";
 import { celebrateComplete } from "../../lib/confetti";
 import { loadSession, saveSession, clearSession, LocalSession } from "../../lib/session";
 
+interface LastPerformance {
+  weight: string | null;
+  reps: string | null;
+  suggestedWeight: string | null;
+}
 interface Exercise {
   id: string;
   name: string;
@@ -17,6 +22,7 @@ interface Exercise {
   notes: string | null;
   completions: { id: string }[];
   libraryItem: { pattern: MovementPattern; cue: string; muscles: string } | null;
+  lastPerformance: LastPerformance | null;
 }
 interface Day {
   id: string;
@@ -191,6 +197,26 @@ export default function GuidedSession() {
               </div>
             )}
             {current.notes && <div className="guided-cue muted">{current.notes}</div>}
+            {current.lastPerformance && (current.lastPerformance.weight || current.lastPerformance.reps) && (
+              <div className="guided-cue muted">
+                <span className="cue-label">Last time </span>
+                {[current.lastPerformance.weight, current.lastPerformance.reps && `${current.lastPerformance.reps} reps`]
+                  .filter(Boolean)
+                  .join(" · ")}
+                {current.lastPerformance.suggestedWeight && ` — try ${current.lastPerformance.suggestedWeight} today`}
+              </div>
+            )}
+            <a
+              href="#"
+              className="small"
+              style={{ display: "inline-block", marginTop: 8 }}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(`/history?tab=formchecks&exerciseId=${current.id}&label=${encodeURIComponent(current.name)}`);
+              }}
+            >
+              Record form check
+            </a>
 
             {showRest && (
               <div className="card" style={{ marginTop: 18, width: "100%" }}>

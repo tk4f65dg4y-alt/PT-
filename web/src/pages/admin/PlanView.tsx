@@ -101,6 +101,18 @@ export default function PlanView() {
     setPlan({ ...plan, archived: !plan.archived });
   }
 
+  async function saveAsTemplate() {
+    if (!plan) return;
+    const title = prompt("Template name", plan.title);
+    if (title === null) return;
+    try {
+      await api.post(`/admin/plans/${plan.id}/save-as-template`, { title });
+      alert("Saved as a reusable template.");
+    } catch (e: any) {
+      setError(e.message);
+    }
+  }
+
   async function remove() {
     if (!plan) return;
     if (!confirm("Delete this plan permanently? This cannot be undone.")) return;
@@ -142,6 +154,9 @@ export default function PlanView() {
           </button>
           <button className="btn secondary sm" onClick={resetProgress}>
             ↺ Reset progress
+          </button>
+          <button className="btn secondary sm" onClick={saveAsTemplate}>
+            Save as template
           </button>
           <button className="btn secondary sm" onClick={archive}>
             {plan.archived ? "Unarchive" : "Archive"}

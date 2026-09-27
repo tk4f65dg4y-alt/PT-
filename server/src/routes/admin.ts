@@ -3,6 +3,7 @@ import { prisma } from "../db";
 import { hashPassword, requireAuth, requireRole } from "../auth";
 import { computeClientStats } from "../lib/stats";
 import { sendPushToUsers } from "../lib/push";
+import { streamVideo } from "../lib/videoStream";
 
 const router = Router();
 router.use(requireAuth, requireRole("TRAINER"));
@@ -386,6 +387,228 @@ router.get("/bookings", async (_req, res) => {
     },
   });
   res.json(bookings);
+});
+
+// ---- Form-check videos ----
+
+router.get("/groups/:groupId/form-checks/:userId", async (req, res) => {
+  const membership = await prisma.groupMember.findFirst({
+    where: { groupId: req.params.groupId, userId: req.params.userId },
+  });
+  if (!membership) return res.status(404).json({ error: "Not found" });
+  const videos = await prisma.formCheckVideo.findMany({
+    where: { userId: req.params.userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      label: true,
+      mimeType: true,
+      sizeBytes: true,
+      createdAt: true,
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { author: { select: { id: true, name: true, role: true } } },
+      },
+    },
+  });
+  res.json(videos);
+});
+
+router.get("/form-checks/:id/file", async (req, res) => {
+  const video = await prisma.formCheckVideo.findUnique({ where: { id: req.params.id } });
+  if (!video) return res.status(404).json({ error: "Not found" });
+  streamVideo(res, video, req.headers.range);
+});
+
+router.post("/form-checks/:id/comments", async (req, res) => {
+  const { body, timestampSec } = req.body || {};
+  if (!body || !String(body).trim()) return res.status(400).json({ error: "Comment can't be empty" });
+  const video = await prisma.formCheckVideo.findUnique({ where: { id: req.params.id } });
+  if (!video) return res.status(404).json({ error: "Not found" });
+  const comment = await prisma.formCheckComment.create({
+    data: {
+      videoId: video.id,
+      authorId: req.user!.id,
+      body: String(body).trim(),
+      timestampSec: typeof timestampSec === "number" ? timestampSec : null,
+    },
+    include: { author: { select: { id: true, name: true, role: true } } },
+  });
+  sendPushToUsers([video.userId], {
+    title: `${req.user!.name} commented on your form check`,
+    body: comment.body,
+    url: "/form-checks",
+  }).catch(() => {});
+  res.status(201).json(comment);
+});
+
+// ---- Workout templates ----
+
+const templateInclude = {
+  weeks: {
+    orderBy: { index: "asc" as const },
+    include: {
+      days: {
+        orderBy: { index: "asc" as const },
+        include: { exercises: { orderBy: { index: "asc" as const } } },
+      },
+    },
+  },
+};
+
+router.get("/templates", async (_req, res) => {
+  const templates = await prisma.planTemplate.findMany({
+    orderBy: { createdAt: "desc" },
+    include: templateInclude,
+  });
+  res.json(templates);
+});
+
+router.get("/templates/:id", async (req, res) => {
+  const template = await prisma.planTemplate.findUnique({
+    where: { id: req.params.id },
+    include: templateInclude,
+  });
+  if (!template) return res.status(404).json({ error: "Not found" });
+  res.json(template);
+});
+
+router.post("/templates", async (req, res) => {
+  const { title, notes, weeks } = req.body || {};
+  if (!title) return res.status(400).json({ error: "Title is required" });
+  const template = await prisma.planTemplate.create({
+    data: {
+      title,
+      notes: notes || null,
+      createdById: req.user!.id,
+      weeks: {
+        create: (weeks || []).map((w: any, wi: number) => ({
+          index: wi,
+          label: w.label || `Week ${wi + 1}`,
+          days: {
+            create: (w.days || []).map((d: any, di: number) => ({
+              index: di,
+              label: d.label || `Day ${di + 1}`,
+              exercises: {
+                create: (d.exercises || []).map((e: any, ei: number) => ({
+                  index: ei,
+                  name: e.name,
+                  sets: e.sets ?? null,
+                  reps: e.reps ?? null,
+                  weight: e.weight ?? null,
+                  restSeconds: e.restSeconds ?? null,
+                  notes: e.notes ?? null,
+                  libraryItemId: e.libraryItemId ?? null,
+                })),
+              },
+            })),
+          },
+        })),
+      },
+    },
+    include: templateInclude,
+  });
+  res.status(201).json(template);
+});
+
+// Snapshots an existing plan's structure into a reusable template.
+router.post("/plans/:id/save-as-template", async (req, res) => {
+  const { title } = req.body || {};
+  const plan = await prisma.plan.findUnique({
+    where: { id: req.params.id },
+    include: {
+      weeks: { orderBy: { index: "asc" }, include: { days: { orderBy: { index: "asc" }, include: { exercises: { orderBy: { index: "asc" } } } } } },
+    },
+  });
+  if (!plan) return res.status(404).json({ error: "Not found" });
+  const template = await prisma.planTemplate.create({
+    data: {
+      title: (title && String(title).trim()) || plan.title,
+      notes: plan.notes,
+      createdById: req.user!.id,
+      weeks: {
+        create: plan.weeks.map((w) => ({
+          index: w.index,
+          label: w.label,
+          days: {
+            create: w.days.map((d) => ({
+              index: d.index,
+              label: d.label,
+              exercises: {
+                create: d.exercises.map((e) => ({
+                  index: e.index,
+                  name: e.name,
+                  sets: e.sets,
+                  reps: e.reps,
+                  weight: e.weight,
+                  restSeconds: e.restSeconds,
+                  notes: e.notes,
+                  libraryItemId: e.libraryItemId,
+                })),
+              },
+            })),
+          },
+        })),
+      },
+    },
+    include: templateInclude,
+  });
+  res.status(201).json(template);
+});
+
+router.delete("/templates/:id", async (req, res) => {
+  await prisma.planTemplate.delete({ where: { id: req.params.id } }).catch(() => {});
+  res.json({ ok: true });
+});
+
+// Creates a new plan for a group by copying a template's structure.
+router.post("/groups/:groupId/plans/from-template/:templateId", async (req, res) => {
+  const { title, startDate, expiresAt, priceLabel } = req.body || {};
+  const group = await prisma.group.findUnique({ where: { id: req.params.groupId } });
+  if (!group) return res.status(404).json({ error: "Group not found" });
+  const template = await prisma.planTemplate.findUnique({
+    where: { id: req.params.templateId },
+    include: templateInclude,
+  });
+  if (!template) return res.status(404).json({ error: "Template not found" });
+
+  const plan = await prisma.plan.create({
+    data: {
+      groupId: group.id,
+      title: (title && String(title).trim()) || template.title,
+      notes: template.notes,
+      startDate: startDate ? new Date(startDate) : null,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      priceLabel: priceLabel || null,
+      createdById: req.user!.id,
+      weeks: {
+        create: template.weeks.map((w) => ({
+          index: w.index,
+          label: w.label,
+          days: {
+            create: w.days.map((d) => ({
+              index: d.index,
+              label: d.label,
+              exercises: {
+                create: d.exercises.map((e) => ({
+                  index: e.index,
+                  name: e.name,
+                  sets: e.sets,
+                  reps: e.reps,
+                  weight: e.weight,
+                  restSeconds: e.restSeconds,
+                  notes: e.notes,
+                  libraryItemId: e.libraryItemId,
+                })),
+              },
+            })),
+          },
+        })),
+      },
+    },
+    include: { weeks: { include: { days: { include: { exercises: true } } } } },
+  });
+  res.status(201).json(plan);
 });
 
 router.post("/bookings/:id/respond", async (req, res) => {

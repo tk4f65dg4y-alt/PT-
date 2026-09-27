@@ -19,4 +19,11 @@ export const api = {
   put: (path: string, data?: unknown) =>
     request(path, { method: "PUT", body: data !== undefined ? JSON.stringify(data) : undefined }),
   del: (path: string) => request(path, { method: "DELETE" }),
+  upload: async (path: string, formData: FormData) => {
+    const res = await fetch(`/api${path}`, { method: "POST", credentials: "include", body: formData });
+    const isJson = res.headers.get("content-type")?.includes("application/json");
+    const body = isJson ? await res.json().catch(() => null) : null;
+    if (!res.ok) throw new Error(body?.error || `Request failed (${res.status})`);
+    return body;
+  },
 };

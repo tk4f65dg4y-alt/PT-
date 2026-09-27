@@ -56,6 +56,9 @@ model User {
   pushSubscriptions PushSubscription[]
   bookingsRequested SessionBooking[]   @relation("BookingRequester")
   checkIns          WorkoutCheckIn[]
+  formCheckVideos   FormCheckVideo[]
+  formCheckComments FormCheckComment[]
+  createdTemplates  PlanTemplate[]     @relation("TemplateCreator")
 }
 
 // A Group is the unit a plan is assigned to. Solo clients are a group of 1;
@@ -138,6 +141,7 @@ model Exercise {
   day         Day                  @relation(fields: [dayId], references: [id], onDelete: Cascade)
   libraryItem ExerciseLibraryItem? @relation(fields: [libraryItemId], references: [id])
   completions Completion[]
+  formCheckVideos FormCheckVideo[]
 }
 
 // A small curated catalog the trainer can pick from when building a plan.
@@ -152,7 +156,8 @@ model ExerciseLibraryItem {
   defaultReps String?
   defaultRest Int?
 
-  exercises Exercise[]
+  exercises         Exercise[]
+  templateExercises TemplateExercise[]
 }
 
 model Completion {
@@ -240,4 +245,84 @@ model PushSubscription {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// A short clip a client uploads of themselves doing a lift, so the trainer
+// can review form and leave timestamped feedback — stored directly in the
+// database (no object storage set up yet); kept small by an upload size cap.
+model FormCheckVideo {
+  id          String   @id @default(cuid())
+  userId      String
+  exerciseId  String?
+  label       String
+  data        Bytes
+  mimeType    String
+  sizeBytes   Int
+  createdAt   DateTime @default(now())
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise?          @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+  comments FormCheckComment[]
+}
+
+model FormCheckComment {
+  id           String   @id @default(cuid())
+  videoId      String
+  authorId     String
+  timestampSec Float?
+  body         String
+  createdAt    DateTime @default(now())
+
+  video  FormCheckVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  author User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// A reusable workout structure the trainer can save once and reapply to any
+// client, instead of rebuilding a plan from scratch each time. Mirrors
+// Plan/Week/Day/Exercise but isn't tied to a group.
+model PlanTemplate {
+  id          String   @id @default(cuid())
+  title       String
+  notes       String?
+  createdAt   DateTime @default(now())
+  createdById String
+
+  createdBy User           @relation("TemplateCreator", fields: [createdById], references: [id])
+  weeks     TemplateWeek[]
+}
+
+model TemplateWeek {
+  id         String  @id @default(cuid())
+  templateId String
+  index      Int
+  label      String?
+
+  template PlanTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  days     TemplateDay[]
+}
+
+model TemplateDay {
+  id     String @id @default(cuid())
+  weekId String
+  index  Int
+  label  String
+
+  week      TemplateWeek       @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  exercises TemplateExercise[]
+}
+
+model TemplateExercise {
+  id            String  @id @default(cuid())
+  dayId         String
+  index         Int
+  name          String
+  sets          Int?
+  reps          String?
+  weight        String?
+  restSeconds   Int?
+  notes         String?
+  libraryItemId String?
+
+  day         TemplateDay          @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  libraryItem ExerciseLibraryItem? @relation(fields: [libraryItemId], references: [id])
 }

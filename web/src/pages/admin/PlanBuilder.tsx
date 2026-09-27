@@ -46,10 +46,44 @@ export default function PlanBuilder() {
   const [loading, setLoading] = useState(editing);
   const [library, setLibrary] = useState<LibraryItem[]>([]);
   const [groupIdForSave, setGroupIdForSave] = useState(groupId);
+  const [templates, setTemplates] = useState<{ id: string; title: string }[]>([]);
+  const [templateId, setTemplateId] = useState("");
 
   useEffect(() => {
     api.get("/library").then(setLibrary).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (editing) return;
+    api.get("/admin/templates").then(setTemplates).catch(() => {});
+  }, [editing]);
+
+  async function loadTemplate() {
+    if (!templateId) return;
+    if (weeks.some((w) => w.days.some((d) => d.exercises.some((e) => e.name.trim())))) {
+      if (!confirm("This replaces what you've drafted so far with the template. Continue?")) return;
+    }
+    const t = await api.get(`/admin/templates/${templateId}`);
+    setTitle((cur) => cur || t.title);
+    setNotes((cur) => cur || t.notes || "");
+    setWeeks(
+      t.weeks.map((w: any) => ({
+        label: w.label,
+        days: w.days.map((d: any) => ({
+          label: d.label,
+          exercises: d.exercises.map((e: any) => ({
+            name: e.name,
+            sets: e.sets != null ? String(e.sets) : "",
+            reps: e.reps || "",
+            weight: e.weight || "",
+            restSeconds: e.restSeconds != null ? String(e.restSeconds) : "",
+            notes: e.notes || "",
+            libraryItemId: e.libraryItemId,
+          })),
+        })),
+      }))
+    );
+  }
 
   useEffect(() => {
     if (!planId) return;
@@ -220,6 +254,28 @@ export default function PlanBuilder() {
           <div className="info-box">
             Saving changes here replaces this plan's exercises — any progress already logged against them will be
             cleared.
+          </div>
+        )}
+        {!editing && templates.length > 0 && (
+          <div className="card">
+            <div className="small muted" style={{ marginBottom: 8, fontWeight: 700 }}>
+              Start from a template
+            </div>
+            <div className="row">
+              <div className="field" style={{ marginBottom: 0 }}>
+                <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+                  <option value="">Select a template…</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button className="btn secondary sm" onClick={loadTemplate} disabled={!templateId}>
+                Load
+              </button>
+            </div>
           </div>
         )}
         <div className="card">

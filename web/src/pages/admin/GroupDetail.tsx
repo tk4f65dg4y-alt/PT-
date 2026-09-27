@@ -38,7 +38,7 @@ export default function GroupDetail() {
   const navigate = useNavigate();
   const [group, setGroup] = useState<GroupData | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"plans" | "progress" | "messages" | "notes">("plans");
+  const [tab, setTab] = useState<"plans" | "progress" | "formchecks" | "messages" | "notes">("plans");
   const [activeMember, setActiveMember] = useState("");
 
   useEffect(() => {
@@ -96,6 +96,9 @@ export default function GroupDetail() {
               <div className={`tab ${tab === "progress" ? "active" : ""}`} onClick={() => setTab("progress")}>
                 Progress
               </div>
+              <div className={`tab ${tab === "formchecks" ? "active" : ""}`} onClick={() => setTab("formchecks")}>
+                Form checks
+              </div>
               <div className={`tab ${tab === "messages" ? "active" : ""}`} onClick={() => setTab("messages")}>
                 Messages
               </div>
@@ -152,6 +155,25 @@ export default function GroupDetail() {
                 )}
                 {activeMember && <MemberStats groupId={group.id} userId={activeMember} />}
                 {activeMember && <MemberCheckIns groupId={group.id} userId={activeMember} />}
+              </>
+            )}
+
+            {tab === "formchecks" && (
+              <>
+                {group.members.length > 1 && (
+                  <div className="tabs">
+                    {group.members.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`tab ${activeMember === m.id ? "active" : ""}`}
+                        onClick={() => setActiveMember(m.id)}
+                      >
+                        {m.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {activeMember && <MemberFormChecks groupId={group.id} userId={activeMember} />}
               </>
             )}
 
@@ -283,6 +305,92 @@ function MemberCheckIns({ groupId, userId }: { groupId: string; userId: string }
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+interface FormCheckComment {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; name: string; role: string };
+}
+interface FormCheckVideo {
+  id: string;
+  label: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+  comments: FormCheckComment[];
+}
+
+function MemberFormChecks({ groupId, userId }: { groupId: string; userId: string }) {
+  const [videos, setVideos] = useState<FormCheckVideo[] | null>(null);
+
+  function load() {
+    setVideos(null);
+    api.get(`/admin/groups/${groupId}/form-checks/${userId}`).then(setVideos);
+  }
+  useEffect(load, [groupId, userId]);
+
+  if (!videos) return <div className="empty">Loading…</div>;
+  if (videos.length === 0) return <div className="empty">No form checks uploaded yet.</div>;
+
+  return (
+    <>
+      {videos.map((v) => (
+        <FormCheckReviewCard key={v.id} video={v} onCommented={load} />
+      ))}
+    </>
+  );
+}
+
+function FormCheckReviewCard({ video, onCommented }: { video: FormCheckVideo; onCommented: () => void }) {
+  const [reply, setReply] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    if (!reply.trim()) return;
+    setBusy(true);
+    try {
+      await api.post(`/admin/form-checks/${video.id}/comments`, { body: reply.trim() });
+      setReply("");
+      onCommented();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <div className="list-row" style={{ marginBottom: 8 }}>
+        <div style={{ fontWeight: 700 }}>{video.label}</div>
+        <div className="small muted">{new Date(video.createdAt).toLocaleDateString()}</div>
+      </div>
+      <video controls playsInline style={{ width: "100%", borderRadius: "var(--radius-sm)", background: "#000" }}>
+        <source src={`/api/admin/form-checks/${video.id}/file`} type={video.mimeType} />
+      </video>
+      {video.comments.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          {video.comments.map((c) => (
+            <div key={c.id} className="small" style={{ marginBottom: 6 }}>
+              <span style={{ fontWeight: 700 }}>{c.author.role === "TRAINER" ? "You" : c.author.name}: </span>
+              {c.body}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="row" style={{ marginTop: 10 }}>
+        <input
+          placeholder="Leave feedback on this clip…"
+          value={reply}
+          onChange={(e) => setReply(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+        />
+        <button className="btn secondary sm" onClick={send} disabled={busy || !reply.trim()}>
+          Send
+        </button>
+      </div>
     </div>
   );
 }

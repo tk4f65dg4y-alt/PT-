@@ -10,6 +10,11 @@ import { loadSession, saveSession, clearSession, LocalSession } from "../../lib/
 interface Completion {
   id: string;
 }
+interface LastPerformance {
+  weight: string | null;
+  reps: string | null;
+  suggestedWeight: string | null;
+}
 interface Exercise {
   id: string;
   name: string;
@@ -20,6 +25,7 @@ interface Exercise {
   notes: string | null;
   completions: Completion[];
   libraryItem: { pattern: MovementPattern; cue: string; muscles: string } | null;
+  lastPerformance: LastPerformance | null;
 }
 interface Day {
   id: string;
@@ -222,6 +228,26 @@ export default function DayWorkout() {
                     </div>
                   )}
                   {ex.notes && <div className="small muted" style={{ marginTop: 3 }}>{ex.notes}</div>}
+                  {ex.lastPerformance && (ex.lastPerformance.weight || ex.lastPerformance.reps) && (
+                    <div className="small muted" style={{ marginTop: 3 }}>
+                      <span className="cue-label">Last time </span>
+                      {[ex.lastPerformance.weight, ex.lastPerformance.reps && `${ex.lastPerformance.reps} reps`]
+                        .filter(Boolean)
+                        .join(" · ")}
+                      {ex.lastPerformance.suggestedWeight && ` — try ${ex.lastPerformance.suggestedWeight} today`}
+                    </div>
+                  )}
+                  <a
+                    href="#"
+                    className="small"
+                    style={{ display: "inline-block", marginTop: 6 }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(`/history?tab=formchecks&exerciseId=${ex.id}&label=${encodeURIComponent(ex.name)}`);
+                    }}
+                  >
+                    Record form check
+                  </a>
                 </div>
                 <button
                   className="icon-btn"

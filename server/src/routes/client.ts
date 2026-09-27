@@ -1,8 +1,13 @@
 import { Router } from "express";
+import multer from "multer";
 import { prisma } from "../db";
 import { requireAuth, requireRole } from "../auth";
 import { computeClientStats } from "../lib/stats";
 import { sendPushToUsers, sendPushToTrainers } from "../lib/push";
+import { attachLastPerformance } from "../lib/overload";
+import { streamVideo } from "../lib/videoStream";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 30 * 1024 * 1024 } });
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -126,7 +131,20 @@ router.get("/plans/:id", async (req, res) => {
     },
   });
   if (!plan) return res.status(404).json({ error: "Not found" });
-  res.json(plan);
+  const flatExercises = plan.weeks.flatMap((w) => w.days.flatMap((d) => d.exercises));
+  const withPerf = await attachLastPerformance(flatExercises, req.user!.id);
+  const perfByExerciseId = new Map(withPerf.map((e) => [e.id, e.lastPerformance]));
+  const planWithPerf = {
+    ...plan,
+    weeks: plan.weeks.map((w) => ({
+      ...w,
+      days: w.days.map((d) => ({
+        ...d,
+        exercises: d.exercises.map((e) => ({ ...e, lastPerformance: perfByExerciseId.get(e.id) ?? null })),
+      })),
+    })),
+  };
+  res.json(planWithPerf);
 });
 
 router.post("/exercises/:id/complete", async (req, res) => {
@@ -364,6 +382,80 @@ router.post("/bookings/:id/cancel", async (req, res) => {
     data: { status: "CANCELLED", respondedAt: new Date() },
   });
   res.json(updated);
+});
+
+// ---- Form-check videos ----
+
+router.get("/form-checks", async (req, res) => {
+  const videos = await prisma.formCheckVideo.findMany({
+    where: { userId: req.user!.id },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      label: true,
+      mimeType: true,
+      sizeBytes: true,
+      createdAt: true,
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { author: { select: { id: true, name: true, role: true } } },
+      },
+    },
+  });
+  res.json(videos);
+});
+
+router.post("/form-checks", upload.single("video"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No video file received" });
+  const { exerciseId, label } = req.body || {};
+  if (!req.file.mimetype.startsWith("video/")) {
+    return res.status(400).json({ error: "File must be a video" });
+  }
+  const video = await prisma.formCheckVideo.create({
+    data: {
+      userId: req.user!.id,
+      exerciseId: exerciseId || null,
+      label: (label && String(label).trim()) || "Form check",
+      data: req.file.buffer,
+      mimeType: req.file.mimetype,
+      sizeBytes: req.file.size,
+    },
+    select: { id: true, label: true, mimeType: true, sizeBytes: true, createdAt: true },
+  });
+  sendPushToTrainers({
+    title: "New form check",
+    body: `${req.user!.name} uploaded a video for "${video.label}"`,
+    url: `/admin`,
+  }).catch(() => {});
+  res.status(201).json({ ...video, comments: [] });
+});
+
+router.get("/form-checks/:id/file", async (req, res) => {
+  const video = await prisma.formCheckVideo.findUnique({ where: { id: req.params.id } });
+  if (!video || video.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
+  streamVideo(res, video, req.headers.range);
+});
+
+router.post("/form-checks/:id/comments", async (req, res) => {
+  const { body, timestampSec } = req.body || {};
+  if (!body || !String(body).trim()) return res.status(400).json({ error: "Comment can't be empty" });
+  const video = await prisma.formCheckVideo.findUnique({ where: { id: req.params.id } });
+  if (!video || video.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
+  const comment = await prisma.formCheckComment.create({
+    data: {
+      videoId: video.id,
+      authorId: req.user!.id,
+      body: String(body).trim(),
+      timestampSec: typeof timestampSec === "number" ? timestampSec : null,
+    },
+    include: { author: { select: { id: true, name: true, role: true } } },
+  });
+  sendPushToTrainers({
+    title: `${req.user!.name} replied on a form check`,
+    body: comment.body,
+    url: `/admin`,
+  }).catch(() => {});
+  res.status(201).json(comment);
 });
 
 export default router;
