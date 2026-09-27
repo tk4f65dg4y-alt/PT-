@@ -20,6 +20,24 @@ repository.
 - Everyone starts with 1000 chips per table. Table limits: 5–500 per bet.
 - A betting round has a 20s timer (rounds start early once everyone's bet is
   in); each player turn has its own 20s timer with auto-stand on timeout.
+- **Side bets**: Perfect Pairs (your first two cards) and 21+3 (your two cards
+  + the dealer's up card, scored as 3-card poker), 5–100 per side bet, resolved
+  right after the deal. Standard paytables (mixed/colored/perfect pair
+  5:1/10:1/30:1; flush/straight/trips/straight flush/suited trips
+  5:1/10:1/30:1/40:1/100:1).
+
+## Casino touches
+
+- **Cast your own dealer**: any player can tap the dealer's seat to upload a
+  friend's photo (resized client-side) and give them a name — everyone at the
+  table sees it. Stored in memory per room only, not persisted.
+- A visible 4-deck shoe (a stack of face-down cards in a wooden holder) that
+  visibly shrinks as the shoe is dealt down, felt-table styling, and the
+  standard "BLACKJACK PAYS 3 TO 2 / DEALER MUST STAND ON 17..." felt text.
+- Built mobile-first: on narrow screens the seat layout switches to a
+  two-column grid (the fanned table needs real width to avoid seats
+  overlapping), and the bet/action controls are pinned to the bottom of the
+  screen so Hit/Stand/Double/Split are always reachable without scrolling.
 
 ## How it works
 

@@ -3,10 +3,12 @@ import { useParams } from "react-router-dom";
 import { ActionBar } from "../components/ActionBar";
 import { BetControls } from "../components/BetControls";
 import { DealerArea } from "../components/DealerArea";
+import { DealerCustomizeModal } from "../components/DealerCustomizeModal";
 import { InsurancePrompt } from "../components/InsurancePrompt";
 import { Seat } from "../components/Seat";
+import { SideBetControls } from "../components/SideBetControls";
 import { useTable } from "../lib/useTable";
-import { SEAT_COUNT } from "../types";
+import { SEAT_COUNT, SIDE_BET_MAX } from "../types";
 
 const NAME_KEY = "bj_name";
 
@@ -72,6 +74,7 @@ export default function TablePage() {
 function TableRoom({ code, name }: { code: string; name: string }) {
   const { state, status, error, send } = useTable(code, name);
   const [showLog, setShowLog] = useState(false);
+  const [showDealerModal, setShowDealerModal] = useState(false);
 
   const you = state?.you ?? null;
   const yourSeat = you?.seat ?? null;
@@ -121,7 +124,17 @@ function TableRoom({ code, name }: { code: string; name: string }) {
       {error && <div className="error-banner">{error}</div>}
 
       <div className="table-felt">
-        <DealerArea dealer={state.dealer} shoeRemaining={state.shoeRemaining} shoeSize={state.shoeSize} />
+        <div className="felt-watermark">
+          <div className="fw-main">Blackjack Pays 3 to 2</div>
+          <div className="fw-sub">Dealer must stand on 17 and draw to 16</div>
+        </div>
+        <DealerArea
+          dealer={state.dealer}
+          shoeRemaining={state.shoeRemaining}
+          shoeSize={state.shoeSize}
+          code={code}
+          onCustomize={() => setShowDealerModal(true)}
+        />
 
         {Array.from({ length: SEAT_COUNT }).map((_, i) => {
           const pos = SEAT_POSITIONS[i];
@@ -150,14 +163,25 @@ function TableRoom({ code, name }: { code: string; name: string }) {
         )}
 
         {state.phase === "betting" && yourPlayer && !yourPlayer.sittingOut && yourPlayer.hands.length === 0 && (
-          <BetControls
-            currentBet={yourPlayer.pendingBet}
-            chips={yourPlayer.chips}
-            minBet={state.minBet}
-            maxBet={state.maxBet}
-            bettingDeadline={state.bettingDeadline}
-            onBet={(amount) => send({ type: "placeBet", amount })}
-          />
+          <>
+            <BetControls
+              currentBet={yourPlayer.pendingBet}
+              chips={yourPlayer.chips}
+              minBet={state.minBet}
+              maxBet={state.maxBet}
+              bettingDeadline={state.bettingDeadline}
+              onBet={(amount) => send({ type: "placeBet", amount })}
+            />
+            {yourPlayer.pendingBet >= state.minBet && (
+              <SideBetControls
+                sideBets={yourPlayer.sideBets}
+                chips={yourPlayer.chips}
+                currentBet={yourPlayer.pendingBet}
+                maxSideBet={SIDE_BET_MAX}
+                onSideBet={(key, amount) => send({ type: "placeSideBet", key, amount })}
+              />
+            )}
+          </>
         )}
 
         {yourTurn && yourPlayer && (
@@ -174,6 +198,15 @@ function TableRoom({ code, name }: { code: string; name: string }) {
           <div className="hint">Pick an empty seat to join the hand.</div>
         )}
       </div>
+
+      {showDealerModal && (
+        <DealerCustomizeModal
+          code={code}
+          currentName={state.dealer.name}
+          hasPhoto={state.dealer.photoVersion > 0}
+          onClose={() => setShowDealerModal(false)}
+        />
+      )}
 
       {yourInsurancePending && yourPlayer && (
         <InsurancePrompt

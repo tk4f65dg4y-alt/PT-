@@ -5,6 +5,7 @@ export const DECK_COUNT = 4;
 export const STARTING_CHIPS = 1000;
 export const MIN_BET = 5;
 export const MAX_BET = 500;
+export const SIDE_BET_MAX = 100;
 export const BETTING_SECONDS = 20;
 export const TURN_SECONDS = 20;
 export const INSURANCE_SECONDS = 12;
@@ -34,6 +35,23 @@ export interface Hand {
   payout?: number;
 }
 
+export type SideBetKey = "perfectPairs" | "twentyOnePlusThree";
+
+export interface SideBetSettled {
+  result: string; // "mixedPair" | "coloredPair" | "perfectPair" | "flush" | "straight" | "threeOfAKind" | "straightFlush" | "suitedTrips" | "lose"
+  payout: number; // total chips returned (0 = lost the side bet)
+}
+
+export interface SideBetsPublic {
+  perfectPairs: number;
+  twentyOnePlusThree: number;
+}
+
+export interface SideBetResultsPublic {
+  perfectPairs: SideBetSettled | null;
+  twentyOnePlusThree: SideBetSettled | null;
+}
+
 export interface PlayerPublic {
   id: string;
   name: string;
@@ -41,6 +59,8 @@ export interface PlayerPublic {
   chips: number;
   connected: boolean;
   pendingBet: number;
+  sideBets: SideBetsPublic;
+  sideBetResults: SideBetResultsPublic;
   hands: Hand[];
   activeHandIndex: number;
   insuranceBet: number | null;
@@ -64,7 +84,11 @@ export interface DealerPublic {
   isSoft: boolean;
   isBlackjack: boolean;
   isBust: boolean;
+  name: string;
+  photoVersion: number; // 0 = no custom photo set; bump on each upload so clients bust their cache
 }
+
+export const MAX_DEALER_PHOTO_BYTES = 4 * 1024 * 1024;
 
 export interface RoomStateMsg {
   type: "state";
@@ -103,5 +127,6 @@ export type ClientMsg =
   | { type: "sit"; seat: number }
   | { type: "standUp" }
   | { type: "placeBet"; amount: number }
+  | { type: "placeSideBet"; key: SideBetKey; amount: number }
   | { type: "action"; action: "hit" | "stand" | "double" | "split" }
   | { type: "insurance"; take: boolean };

@@ -1,7 +1,7 @@
 :root {
-  --felt: #0b5c3c;
-  --felt-dark: #073d28;
-  --felt-edge: #d4af37;
+  --felt: #0b6b45;
+  --felt-dark: #062e1e;
+  --felt-edge: #e8c158;
   --ink: #f4f1e6;
   --ink-dim: #c9c3ad;
   --panel: #14211b;
@@ -10,7 +10,12 @@
   --ok: #3bb273;
   --card-red: #c62828;
   --card-black: #1a1a1a;
+  --wood: #6b3a1f;
+  --wood-dark: #3a2010;
+  --wood-light: #8a5228;
+  --brass: #d4af37;
   --radius: 12px;
+  --font-display: "Cinzel", "Segoe UI", serif;
 }
 
 * {
@@ -25,9 +30,25 @@ body,
 
 body {
   margin: 0;
-  background: radial-gradient(ellipse at top, #163a2c 0%, #0a1a13 70%);
+  background: radial-gradient(ellipse 90% 60% at 50% 0%, #1d4633 0%, #0a1a13 55%, #050d09 100%);
   color: var(--ink);
   font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  position: relative;
+}
+body::before {
+  /* ambient casino-carpet speckle behind everything */
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(232, 193, 88, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0.5;
+  z-index: 0;
+}
+#root {
+  position: relative;
+  z-index: 1;
 }
 
 button {
@@ -80,27 +101,35 @@ button {
 .home-card {
   width: 100%;
   max-width: 380px;
-  background: var(--panel);
-  border: 1px solid rgba(212, 175, 55, 0.25);
+  background: linear-gradient(180deg, var(--panel) 0%, #0f1b15 100%);
+  border: 1px solid rgba(212, 175, 55, 0.3);
   border-radius: var(--radius);
-  padding: 28px 24px;
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  position: relative;
 }
 .home-title {
   margin: 0 0 4px;
-  font-size: 26px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
   text-align: center;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  color: var(--felt-edge);
+  text-shadow: 0 0 12px rgba(232, 193, 88, 0.55), 0 0 2px rgba(232, 193, 88, 0.8), 0 2px 0 rgba(0, 0, 0, 0.4);
 }
 .home-title .suit {
   margin: 0 8px;
   color: var(--ink);
+  text-shadow: 0 0 10px rgba(244, 241, 230, 0.5);
 }
 .home-title .suit.red {
   color: var(--card-red);
+  text-shadow: 0 0 10px rgba(198, 40, 40, 0.6);
 }
 .home-sub {
   margin: 0 0 8px;
@@ -194,7 +223,9 @@ button {
   letter-spacing: 2px;
 }
 .phase-label {
+  font-family: var(--font-display);
   font-weight: 700;
+  letter-spacing: 0.5px;
   color: var(--ink);
 }
 .conn-status {
@@ -233,50 +264,165 @@ button {
   flex: 1;
   min-height: 560px;
   margin-bottom: 70px;
-  background: radial-gradient(ellipse at 50% 0%, var(--felt) 0%, var(--felt-dark) 75%);
-  border: 10px solid #3a2415;
+  background: radial-gradient(ellipse 70% 55% at 50% 12%, rgba(255, 255, 255, 0.05), transparent 55%),
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.05) 0px,
+      rgba(0, 0, 0, 0.05) 2px,
+      transparent 2px,
+      transparent 5px
+    ),
+    radial-gradient(ellipse at 50% 0%, var(--felt) 0%, var(--felt-dark) 78%);
+  border: 12px solid var(--wood);
+  border-image: linear-gradient(
+      160deg,
+      var(--wood-light) 0%,
+      var(--wood) 25%,
+      var(--wood-dark) 50%,
+      var(--wood) 75%,
+      var(--wood-light) 100%
+    )
+    1;
+  outline: 2px solid rgba(212, 175, 55, 0.4);
+  outline-offset: -16px;
   border-radius: 260px 260px 40px 40px / 160px 160px 40px 40px;
-  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55), 0 20px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.6), inset 0 40px 90px -40px rgba(255, 255, 255, 0.12),
+    0 20px 50px rgba(0, 0, 0, 0.5);
   overflow: visible;
+}
+
+.felt-watermark {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(232, 193, 88, 0.28);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+.felt-watermark .fw-main {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 3px;
+}
+.felt-watermark .fw-sub {
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  font-family: "Segoe UI", system-ui, sans-serif;
 }
 
 .dealer-area {
   position: absolute;
-  top: 6%;
+  top: 4%;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  align-items: flex-start;
+  gap: 22px;
+  z-index: 2;
+}
+.dealer-persona {
+  display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+.dealer-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 3px solid var(--brass);
+  background: radial-gradient(circle at 35% 30%, #2c4235, #0d1a13) center/cover;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 0 0 4px rgba(6, 12, 9, 0.6), 0 0 22px rgba(232, 193, 88, 0.35), 0 6px 14px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dealer-avatar:hover {
+  transform: scale(1.04);
+  box-shadow: 0 0 0 4px rgba(6, 12, 9, 0.6), 0 0 30px rgba(232, 193, 88, 0.55), 0 6px 14px rgba(0, 0, 0, 0.5);
+}
+.dealer-avatar-glyph {
+  font-size: 32px;
+  color: rgba(232, 193, 88, 0.5);
+}
+.dealer-nameplate {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #2a1c0d;
+  background: linear-gradient(180deg, #f0d896, var(--brass));
+  border: 1px solid #8a6a1f;
+  border-radius: 4px;
+  padding: 3px 10px;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dealer-cards {
   position: relative;
   height: 96px;
   min-width: 120px;
+  margin-top: 14px;
 }
 .dealer-total {
   color: var(--felt-edge);
   font-weight: 700;
 }
-.shoe-indicator {
+
+/* ---------- Shoe / deck ---------- */
+
+.shoe-stack {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
+  gap: 4px;
+  margin-top: 6px;
+}
+.shoe-holder {
+  width: 64px;
+  height: 44px;
+  background: linear-gradient(180deg, var(--wood-light), var(--wood-dark));
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  border-radius: 6px 6px 3px 3px;
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.4), 0 3px 6px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+  position: relative;
+}
+.shoe-deck {
+  position: relative;
+  width: 40px;
+}
+.shoe-layer {
+  position: absolute;
+  left: 0;
+  width: 40px;
+  height: 4px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(45deg, #7a1f1f, #7a1f1f 2px, #5c1616 2px, #5c1616 4px);
+  border: 1px solid rgba(232, 193, 88, 0.4);
+}
+.shoe-label {
+  font-size: 10px;
   color: var(--ink-dim);
-}
-.shoe-bar {
-  width: 90px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.shoe-fill {
-  height: 100%;
-  background: var(--felt-edge);
-  transition: width 0.4s ease;
+  letter-spacing: 0.5px;
 }
 
 .seat-slot {
@@ -288,7 +434,7 @@ button {
 /* ---------- Seats ---------- */
 
 .seat {
-  background: rgba(8, 20, 14, 0.72);
+  background: rgba(8, 20, 14, 0.76);
   border: 1px solid rgba(212, 175, 55, 0.25);
   border-radius: 10px;
   padding: 8px 10px;
@@ -297,6 +443,7 @@ button {
   flex-direction: column;
   gap: 6px;
   backdrop-filter: blur(2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 3px 8px rgba(0, 0, 0, 0.35);
 }
 .seat-empty {
   align-items: center;
@@ -407,8 +554,11 @@ button {
   height: 45px;
 }
 .card-back {
-  background: repeating-linear-gradient(45deg, #7a1f1f, #7a1f1f 4px, #5c1616 4px, #5c1616 8px);
-  border: 1px solid rgba(212, 175, 55, 0.5);
+  background: repeating-linear-gradient(45deg, #7a1f1f, #7a1f1f 4px, #5c1616 4px, #5c1616 8px),
+    repeating-linear-gradient(-45deg, #7a1f1f, #7a1f1f 4px, #5c1616 4px, #5c1616 8px);
+  background-blend-mode: multiply;
+  border: 1px solid rgba(232, 193, 88, 0.6);
+  box-shadow: inset 0 0 0 2px rgba(232, 193, 88, 0.35), 0 2px 4px rgba(0, 0, 0, 0.35);
 }
 .card-red {
   color: var(--card-red);
@@ -529,6 +679,20 @@ button {
   align-items: center;
   gap: 10px;
   min-height: 60px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(9, 16, 12, 0) 0%, rgba(7, 13, 10, 0.94) 22%, rgba(7, 13, 10, 0.98) 100%);
+  border-top: 1px solid rgba(212, 175, 55, 0.25);
+  max-height: 46vh;
+  overflow-y: auto;
+}
+/* Reserve room at the bottom of the page so the fixed control bar never covers the felt/log. */
+.table-page {
+  padding-bottom: 220px;
 }
 .hint {
   color: var(--ink-dim);
@@ -570,6 +734,80 @@ button {
 .bet-limits {
   font-size: 11px;
   color: var(--ink-dim);
+}
+
+/* ---------- Side bets ---------- */
+
+.side-bet-toggle {
+  align-self: center;
+}
+.side-bet-controls {
+  background: var(--panel);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(340px, 100%);
+}
+.side-bet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--felt-edge);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.side-bet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.side-bet-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.side-bet-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.side-bet-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.side-bet-blurb {
+  font-size: 10px;
+  color: var(--ink-dim);
+  white-space: normal;
+}
+.side-bet-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.side-bet-amount {
+  min-width: 22px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--felt-edge);
+  font-size: 13px;
+}
+
+.side-bet-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.side-bet-tag {
+  white-space: nowrap;
 }
 
 .action-bar {
@@ -621,7 +859,7 @@ button {
   align-items: center;
   justify-content: center;
   padding: 16px;
-  z-index: 20;
+  z-index: 40;
 }
 .modal {
   background: var(--panel);
@@ -647,6 +885,33 @@ button {
   display: flex;
   gap: 10px;
   justify-content: center;
+  flex-wrap: wrap;
+}
+
+.dealer-modal {
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dealer-photo-picker {
+  align-self: center;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 3px dashed rgba(212, 175, 55, 0.5);
+  background: var(--panel-2) center/cover no-repeat;
+  color: var(--ink-dim);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease;
+}
+.dealer-photo-picker:hover {
+  border-color: var(--felt-edge);
+  color: var(--felt-edge);
 }
 
 /* ---------- Log ---------- */
@@ -680,12 +945,34 @@ button {
 /* ---------- Responsive ---------- */
 
 @media (max-width: 640px) {
+  /* The fanned oval layout needs real width to avoid seats overlapping or running off
+     screen, so on phones we drop it for a simple two-column grid of seats below the
+     dealer instead — same felt, same everything, just stacked so nothing is ever
+     off-screen or hidden without scrolling. */
   .table-felt {
-    min-height: 620px;
-    border-radius: 160px 160px 30px 30px / 120px 120px 30px 30px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: center;
+    gap: 10px;
+    min-height: 0;
+    height: auto;
+    padding: 210px 10px 20px;
+    border-radius: 24px;
+  }
+  .dealer-area {
+    top: 14px;
+  }
+  .felt-watermark {
+    top: 175px;
   }
   .seat-slot {
-    width: 118px;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    width: calc(50% - 16px) !important;
+    max-width: 168px;
   }
   .card {
     width: 32px;
@@ -696,5 +983,33 @@ button {
   }
   .home-title {
     font-size: 22px;
+  }
+  .dealer-area {
+    gap: 10px;
+  }
+  .dealer-avatar {
+    width: 60px;
+    height: 60px;
+  }
+  .dealer-avatar-glyph {
+    font-size: 22px;
+  }
+  .dealer-nameplate {
+    font-size: 9px;
+    max-width: 90px;
+  }
+  .shoe-holder {
+    width: 48px;
+    height: 34px;
+  }
+  .shoe-deck,
+  .shoe-layer {
+    width: 30px;
+  }
+  .felt-watermark .fw-main {
+    font-size: 14px;
+  }
+  .felt-watermark .fw-sub {
+    font-size: 8px;
   }
 }

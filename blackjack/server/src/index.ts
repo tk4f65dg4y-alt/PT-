@@ -4,7 +4,7 @@ import path from "path";
 import { WebSocket, WebSocketServer } from "ws";
 import { RoomManager } from "./roomManager";
 import { InternalPlayer } from "./room";
-import { ClientMsg } from "./types";
+import { ClientMsg, MAX_DEALER_PHOTO_BYTES } from "./types";
 
 const PORT = parseInt(process.env.PORT || "3210", 10);
 
@@ -22,6 +22,52 @@ app.get("/api/rooms/:code", (req, res) => {
   const room = manager.get(req.params.code);
   if (!room) return res.status(404).json({ exists: false });
   res.json({ exists: true });
+});
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+app.post(
+  "/api/rooms/:code/dealer-photo",
+  express.raw({ type: ALLOWED_IMAGE_TYPES, limit: MAX_DEALER_PHOTO_BYTES }),
+  (req, res) => {
+    const room = manager.get(req.params.code);
+    if (!room) return res.status(404).json({ error: "Room not found." });
+    const contentType = (req.headers["content-type"] || "").split(";")[0].trim();
+    if (!ALLOWED_IMAGE_TYPES.includes(contentType) || !Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ error: "Send a JPEG, PNG, WebP, or GIF image." });
+    }
+    room.setDealerPhoto(req.body, contentType);
+    res.json({ ok: true });
+  }
+);
+
+app.delete("/api/rooms/:code/dealer-photo", (req, res) => {
+  const room = manager.get(req.params.code);
+  if (!room) return res.status(404).json({ error: "Room not found." });
+  room.clearDealerPhoto();
+  res.json({ ok: true });
+});
+
+app.get("/api/rooms/:code/dealer-photo", (req, res) => {
+  const room = manager.get(req.params.code);
+  const photo = room?.getDealerPhoto();
+  if (!room || !photo) return res.status(404).end();
+  res.set("Content-Type", photo.contentType);
+  res.set("Cache-Control", "public, max-age=31536000, immutable");
+  res.send(photo.data);
+});
+
+app.post("/api/rooms/:code/dealer-name", (req, res) => {
+  const room = manager.get(req.params.code);
+  if (!room) return res.status(404).json({ error: "Room not found." });
+  const name = typeof req.body?.name === "string" ? req.body.name : "";
+  room.setDealerName(name);
+  res.json({ ok: true });
+});
+
+app.use((err: Error, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) return next(err);
+  res.status(400).json({ error: "That photo was too large or malformed." });
 });
 
 const webDist = path.join(__dirname, "..", "..", "web", "dist");

@@ -3,6 +3,7 @@ import type { WebSocket } from "ws";
 import { Shoe } from "./deck";
 import { canSplit, isBust, isNaturalBlackjack, valueOf } from "./hand";
 import { settleAgainstDealerBlackjack, settleAgainstDealerFinal, settleInsurance } from "./payout";
+import { settlePerfectPairs, settleTwentyOnePlusThree } from "./sidebets";
 import {
   BETTING_SECONDS,
   Card,
@@ -20,6 +21,10 @@ import {
   RoomPhase,
   RoomStateMsg,
   SEAT_COUNT,
+  SIDE_BET_MAX,
+  SideBetKey,
+  SideBetResultsPublic,
+  SideBetsPublic,
   STARTING_CHIPS,
   ServerMsg,
   TURN_SECONDS,
@@ -34,6 +39,8 @@ export interface InternalPlayer {
   hands: Hand[];
   activeHandIndex: number;
   pendingBet: number;
+  sideBets: SideBetsPublic;
+  sideBetResults: SideBetResultsPublic;
   insuranceBet: number | null;
   insuranceDecided: boolean;
   connected: boolean;
@@ -62,9 +69,38 @@ export class Room {
   private log: string[] = [];
   private timer: NodeJS.Timeout | null = null;
   private lastActivity = Date.now();
+  private dealerName = "Dealer";
+  private dealerPhoto: { data: Buffer; contentType: string } | null = null;
+  private dealerPhotoVersion = 0;
 
   constructor(code: string) {
     this.code = code;
+  }
+
+  getDealerPhoto(): { data: Buffer; contentType: string } | null {
+    return this.dealerPhoto;
+  }
+
+  setDealerPhoto(data: Buffer, contentType: string) {
+    this.lastActivity = Date.now();
+    this.dealerPhoto = { data, contentType };
+    this.dealerPhotoVersion++;
+    this.pushLog(`The dealer got a new face.`);
+    this.broadcast();
+  }
+
+  clearDealerPhoto() {
+    this.lastActivity = Date.now();
+    this.dealerPhoto = null;
+    this.dealerPhotoVersion++;
+    this.broadcast();
+  }
+
+  setDealerName(name: string) {
+    this.lastActivity = Date.now();
+    const trimmed = name.trim().slice(0, 24);
+    this.dealerName = trimmed || "Dealer";
+    this.broadcast();
   }
 
   get isEmpty(): boolean {
@@ -120,6 +156,8 @@ export class Room {
       hands: [],
       activeHandIndex: 0,
       pendingBet: 0,
+      sideBets: { perfectPairs: 0, twentyOnePlusThree: 0 },
+      sideBetResults: { perfectPairs: null, twentyOnePlusThree: null },
       insuranceBet: null,
       insuranceDecided: false,
       connected: true,
@@ -211,6 +249,8 @@ export class Room {
     for (const p of seated) {
       p.hands = [];
       p.pendingBet = 0;
+      p.sideBets = { perfectPairs: 0, twentyOnePlusThree: 0 };
+      p.sideBetResults = { perfectPairs: null, twentyOnePlusThree: null };
       p.insuranceBet = null;
       p.insuranceDecided = false;
       p.sittingOut = p.chips < MIN_BET;
@@ -238,12 +278,33 @@ export class Room {
     }
     if (clamped > player.chips) throw new Error("You don't have enough chips for that bet.");
     player.pendingBet = clamped;
+    if (clamped < MIN_BET) {
+      // No main bet, no side bets -- a side bet always rides on a hand being dealt.
+      player.sideBets = { perfectPairs: 0, twentyOnePlusThree: 0 };
+    }
     this.broadcast();
 
     const active = this.eligiblePlayers().filter((p) => !p.sittingOut);
     if (active.length > 0 && active.every((p) => p.pendingBet >= MIN_BET)) {
       this.schedule(700, () => this.dealCards());
     }
+  }
+
+  placeSideBet(player: InternalPlayer, key: SideBetKey, amount: number) {
+    if (this.phase !== "betting") throw new Error("Betting isn't open right now.");
+    if (player.seat === -1) throw new Error("Take a seat first.");
+    if (player.sittingOut) throw new Error("Not enough chips to bet.");
+    if (player.pendingBet < MIN_BET) throw new Error("Place a main bet first.");
+    const clamped = Math.floor(amount);
+    if (clamped !== 0 && (clamped < MIN_BET || clamped > SIDE_BET_MAX)) {
+      throw new Error(`Side bets must be between ${MIN_BET} and ${SIDE_BET_MAX}.`);
+    }
+    const otherKey: SideBetKey = key === "perfectPairs" ? "twentyOnePlusThree" : "perfectPairs";
+    if (player.pendingBet + clamped + player.sideBets[otherKey] > player.chips) {
+      throw new Error("You don't have enough chips for that bet.");
+    }
+    player.sideBets[key] = clamped;
+    this.broadcast();
   }
 
   // ---------- dealing ----------
@@ -278,11 +339,32 @@ export class Room {
     for (const p of active) p.hands[0].cards.push(this.draw());
     this.dealerCards.push(this.draw());
 
+    this.resolveSideBets(active);
+
     this.phase = "dealing";
     this.pushLog("Dealing.");
     this.broadcast();
 
     this.schedule(1400, () => this.afterDeal());
+  }
+
+  private resolveSideBets(active: InternalPlayer[]) {
+    const dealerUp = this.dealerCards[0];
+    for (const p of active) {
+      const cards = p.hands[0].cards as [Card, Card];
+      if (p.sideBets.perfectPairs > 0) {
+        const settled = settlePerfectPairs(cards, p.sideBets.perfectPairs);
+        p.chips -= p.sideBets.perfectPairs;
+        p.chips += settled.payout;
+        p.sideBetResults.perfectPairs = settled;
+      }
+      if (p.sideBets.twentyOnePlusThree > 0) {
+        const settled = settleTwentyOnePlusThree(cards, dealerUp, p.sideBets.twentyOnePlusThree);
+        p.chips -= p.sideBets.twentyOnePlusThree;
+        p.chips += settled.payout;
+        p.sideBetResults.twentyOnePlusThree = settled;
+      }
+    }
   }
 
   private afterDeal() {
@@ -573,6 +655,9 @@ export class Room {
       case "placeBet":
         this.placeBet(player, msg.amount);
         return;
+      case "placeSideBet":
+        this.placeSideBet(player, msg.key, msg.amount);
+        return;
       case "insurance":
         this.takeInsurance(player, msg.take);
         return;
@@ -594,6 +679,8 @@ export class Room {
       isSoft: v ? v.soft : false,
       isBlackjack: v ? v.total === 21 && this.dealerCards.length === 2 : false,
       isBust: v ? v.total > 21 : false,
+      name: this.dealerName,
+      photoVersion: this.dealerPhotoVersion,
     };
   }
 
@@ -605,6 +692,8 @@ export class Room {
       chips: p.chips,
       connected: p.connected,
       pendingBet: p.pendingBet,
+      sideBets: p.sideBets,
+      sideBetResults: p.sideBetResults,
       hands: p.hands,
       activeHandIndex: p.activeHandIndex,
       insuranceBet: p.insuranceBet,

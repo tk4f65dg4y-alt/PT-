@@ -1,6 +1,28 @@
-import { PlayerPublic, RoomPhase } from "../types";
+import { PlayerPublic, RoomPhase, SideBetSettled } from "../types";
 import { ChipStack } from "./Chip";
 import { HandView } from "./HandView";
+
+const SIDE_BET_RESULT_LABEL: Record<string, string> = {
+  mixedPair: "Mixed Pair",
+  coloredPair: "Colored Pair",
+  perfectPair: "Perfect Pair!",
+  flush: "Flush",
+  straight: "Straight",
+  threeOfAKind: "Three of a Kind",
+  straightFlush: "Straight Flush!",
+  suitedTrips: "Suited Trips!!",
+  lose: "No win",
+};
+
+function SideBetTag({ label, settled }: { label: string; settled: SideBetSettled }) {
+  const won = settled.payout > 0;
+  return (
+    <span className={`tag side-bet-tag ${won ? "result-win" : "result-lose"}`}>
+      {label}: {SIDE_BET_RESULT_LABEL[settled.result] || settled.result}
+      {won ? ` +${settled.payout}` : ""}
+    </span>
+  );
+}
 
 export function Seat({
   seatIndex,
@@ -63,6 +85,17 @@ export function Seat({
       ) : null}
 
       {player.insuranceBet ? <div className="seat-status">insurance: {player.insuranceBet}</div> : null}
+
+      {(player.sideBetResults.perfectPairs || player.sideBetResults.twentyOnePlusThree) && (
+        <div className="side-bet-tags">
+          {player.sideBetResults.perfectPairs && (
+            <SideBetTag label="PP" settled={player.sideBetResults.perfectPairs} />
+          )}
+          {player.sideBetResults.twentyOnePlusThree && (
+            <SideBetTag label="21+3" settled={player.sideBetResults.twentyOnePlusThree} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
