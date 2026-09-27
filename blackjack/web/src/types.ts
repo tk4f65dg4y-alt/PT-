@@ -115,6 +115,7 @@ export type ClientMsg =
   | { type: "join"; name: string; token?: string; seat?: number }
   | { type: "sit"; seat: number }
   | { type: "standUp" }
+  | { type: "startNow" }
   | { type: "placeBet"; amount: number }
   | { type: "placeSideBet"; key: SideBetKey; amount: number }
   | { type: "action"; action: "hit" | "stand" | "double" | "split" }

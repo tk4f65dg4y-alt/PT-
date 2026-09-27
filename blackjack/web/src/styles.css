@@ -701,6 +701,9 @@ button {
 .stand-up-btn {
   align-self: center;
 }
+.start-game-btn {
+  align-self: center;
+}
 
 /* ---------- Betting area (felt betting circles + chip tray) ---------- */
 

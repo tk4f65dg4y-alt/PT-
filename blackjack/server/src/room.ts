@@ -221,6 +221,12 @@ export class Room {
     this.broadcast();
   }
 
+  startNow(player: InternalPlayer) {
+    if (this.phase !== "waiting") throw new Error("The round's already starting.");
+    if (player.seat === -1) throw new Error("Take a seat first.");
+    this.startBetting();
+  }
+
   standUp(player: InternalPlayer) {
     if (player.seat === -1) return;
     if (this.phase !== "waiting" && this.phase !== "betting") {
@@ -651,6 +657,9 @@ export class Room {
         return;
       case "standUp":
         this.standUp(player);
+        return;
+      case "startNow":
+        this.startNow(player);
         return;
       case "placeBet":
         this.placeBet(player, msg.amount);

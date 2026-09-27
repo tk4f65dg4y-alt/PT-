@@ -6,6 +6,7 @@ import { DealerArea } from "../components/DealerArea";
 import { DealerCustomizeModal } from "../components/DealerCustomizeModal";
 import { InsurancePrompt } from "../components/InsurancePrompt";
 import { Seat } from "../components/Seat";
+import { useCountdown } from "../lib/useCountdown";
 import { useTable } from "../lib/useTable";
 import { SEAT_COUNT, SIDE_BET_MAX } from "../types";
 
@@ -161,6 +162,10 @@ function TableRoom({ code, name }: { code: string; name: string }) {
           </button>
         )}
 
+        {state.phase === "waiting" && yourSeat !== null && (
+          <StartGameButton deadline={state.bettingDeadline} onStart={() => send({ type: "startNow" })} />
+        )}
+
         {state.phase === "betting" && yourPlayer && !yourPlayer.sittingOut && yourPlayer.hands.length === 0 && (
           <BettingArea
             currentBet={yourPlayer.pendingBet}
@@ -222,5 +227,14 @@ function TableRoom({ code, name }: { code: string; name: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function StartGameButton({ deadline, onStart }: { deadline: number | null; onStart: () => void }) {
+  const secs = useCountdown(deadline);
+  return (
+    <button className="btn btn-primary start-game-btn" onClick={onStart}>
+      Start game{secs !== null ? ` (auto in ${Math.ceil(secs)}s)` : ""}
+    </button>
   );
 }
