@@ -27,7 +27,7 @@ interface Exercise {
   weight: string | null;
   restSeconds: number | null;
   completions: Completion[];
-  libraryItem: { pattern: MovementPattern; cue: string } | null;
+  libraryItem: { pattern: MovementPattern; cue: string; muscles: string } | null;
 }
 interface Day {
   id: string;
@@ -243,7 +243,17 @@ export default function PlanView() {
                               {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`, ex.weight]
                                 .filter(Boolean)
                                 .join(" · ")}
+                              {ex.libraryItem?.muscles && (
+                                <span className="badge accent" style={{ marginLeft: 6 }}>
+                                  {ex.libraryItem.muscles}
+                                </span>
+                              )}
                             </div>
+                            {ex.libraryItem?.cue && (
+                              <div className="small muted" style={{ marginTop: 4 }}>
+                                💡 {ex.libraryItem.cue}
+                              </div>
+                            )}
                             {c && (
                               <div className="small muted" style={{ marginTop: 3 }}>
                                 Done {new Date(c.completedAt).toLocaleString()}

@@ -17,7 +17,7 @@ interface Exercise {
   restSeconds: number | null;
   notes: string | null;
   completions: Completion[];
-  libraryItem: { pattern: MovementPattern; cue: string } | null;
+  libraryItem: { pattern: MovementPattern; cue: string; muscles: string } | null;
 }
 interface Day {
   id: string;
@@ -191,13 +191,23 @@ export default function DayWorkout() {
                   {isDone ? "✓" : ""}
                 </div>
                 {ex.libraryItem && <MovementAnimation pattern={ex.libraryItem.pattern} size={40} />}
-                <div style={{ flex: 1 }} onClick={() => setOpenTimerFor(openTimerFor === ex.id ? null : ex.id)}>
+                <div style={{ flex: 1 }}>
                   <div className={`exercise-name ${isDone ? "done" : ""}`}>{ex.name}</div>
                   <div className="exercise-meta">
                     {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`, ex.weight]
                       .filter(Boolean)
                       .join(" · ")}
+                    {ex.libraryItem?.muscles && (
+                      <span className="badge accent" style={{ marginLeft: 6 }}>
+                        {ex.libraryItem.muscles}
+                      </span>
+                    )}
                   </div>
+                  {ex.libraryItem?.cue && (
+                    <div className="small muted" style={{ marginTop: 4 }}>
+                      💡 {ex.libraryItem.cue}
+                    </div>
+                  )}
                   {ex.notes && <div className="small muted" style={{ marginTop: 3 }}>{ex.notes}</div>}
                 </div>
                 <button
@@ -208,12 +218,7 @@ export default function DayWorkout() {
                   ⏱
                 </button>
               </div>
-              {openTimerFor === ex.id && (
-                <>
-                  {ex.libraryItem?.cue && <div className="info-box">💡 {ex.libraryItem.cue}</div>}
-                  <RestTimer defaultSeconds={ex.restSeconds || 60} />
-                </>
-              )}
+              {openTimerFor === ex.id && <RestTimer defaultSeconds={ex.restSeconds || 60} />}
             </div>
           );
         })}
