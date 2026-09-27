@@ -11,6 +11,7 @@ import libraryRoutes from "./routes/library";
 import pushRoutes from "./routes/push";
 import { seedExerciseLibrary } from "./lib/exerciseLibrary";
 import { sendInactivityNudges } from "./lib/nudges";
+import { sendWeeklyDigest } from "./lib/weeklyDigest";
 import { seedHemaSanjPlan } from "./lib/seedHemaSanjPlan";
 
 const app = express();
@@ -82,5 +83,10 @@ bootstrapAdmin()
     // they've enabled notifications. 15:00 UTC is an arbitrary fixed time.
     cron.schedule("0 15 * * *", () => {
       sendInactivityNudges().catch((err) => console.error("Inactivity nudge job failed", err));
+    });
+    // Weekly recap for the trainer — Sunday evening (UK time), summarizing
+    // each client's week so a quiet client is visible without opening the app.
+    cron.schedule("0 18 * * 0", () => {
+      sendWeeklyDigest().catch((err) => console.error("Weekly digest job failed", err));
     });
   });
