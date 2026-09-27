@@ -138,7 +138,7 @@ export default function PlanView() {
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button className="btn secondary sm" onClick={() => navigate(`/admin/plans/${plan.id}/edit`)}>
-            ✏️ Edit
+            Edit
           </button>
           <button className="btn secondary sm" onClick={resetProgress}>
             ↺ Reset progress
@@ -251,7 +251,8 @@ export default function PlanView() {
                             </div>
                             {ex.libraryItem?.cue && (
                               <div className="small muted" style={{ marginTop: 4 }}>
-                                💡 {ex.libraryItem.cue}
+                                <span className="cue-label">Technique </span>
+                                {ex.libraryItem.cue}
                               </div>
                             )}
                             {c && (

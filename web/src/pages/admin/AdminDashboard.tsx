@@ -76,7 +76,7 @@ export default function AdminDashboard() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button className="btn secondary sm" onClick={() => navigate("/admin/bookings")}>
-            🔔 Bookings
+            Bookings
             {pendingBookings > 0 && <span className="badge count">{pendingBookings}</span>}
           </button>
           <button className="btn ghost" onClick={() => logout()}>

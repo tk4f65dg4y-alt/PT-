@@ -4,7 +4,7 @@ import { api } from "../../lib/api";
 import RestTimer from "../../components/RestTimer";
 import MovementAnimation, { MovementPattern } from "../../components/MovementAnimation";
 import CheckInModal from "../../components/CheckInModal";
-import { burstConfetti } from "../../lib/confetti";
+import { celebrateComplete } from "../../lib/confetti";
 import { loadSession, saveSession, clearSession, LocalSession } from "../../lib/session";
 
 interface Exercise {
@@ -110,7 +110,7 @@ export default function GuidedSession() {
         if (current.restSeconds) setShowRest(true);
         if (index === exercises.length - 1) {
           const willAllBeDone = exercises.every((e) => (e.id === current.id ? true : e.completions.length > 0));
-          if (willAllBeDone) burstConfetti();
+          if (willAllBeDone) celebrateComplete();
         }
       }
     } catch (e: any) {
@@ -184,7 +184,12 @@ export default function GuidedSession() {
                 .join(" · ")}
             </div>
             {current.libraryItem?.muscles && <div className="badge accent">{current.libraryItem.muscles}</div>}
-            {current.libraryItem?.cue && <div className="guided-cue">💡 {current.libraryItem.cue}</div>}
+            {current.libraryItem?.cue && (
+              <div className="guided-cue">
+                <span className="cue-label">Technique </span>
+                {current.libraryItem.cue}
+              </div>
+            )}
             {current.notes && <div className="guided-cue muted">{current.notes}</div>}
 
             {showRest && (

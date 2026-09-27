@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import Icon from "./Icon";
 
 export default function ClientTabBar() {
   const location = useLocation();
@@ -24,10 +25,10 @@ export default function ClientTabBar() {
   }, [location.pathname]);
 
   const items = [
-    { path: "/", icon: "🏠", label: "Home" },
-    { path: "/book", icon: "📅", label: "Book" },
-    { path: "/messages", icon: "💬", label: "Messages", dot: unread > 0 },
-    { path: "/history", icon: "📈", label: "History" },
+    { path: "/", icon: "home" as const, label: "Home" },
+    { path: "/book", icon: "calendar" as const, label: "Book" },
+    { path: "/messages", icon: "chat" as const, label: "Messages", dot: unread > 0 },
+    { path: "/history", icon: "history" as const, label: "History" },
   ];
 
   return (
@@ -38,7 +39,9 @@ export default function ClientTabBar() {
           className={`tabbar-item ${location.pathname === item.path ? "active" : ""}`}
           onClick={() => navigate(item.path)}
         >
-          <div className="tabbar-icon">{item.icon}</div>
+          <div className="tabbar-icon">
+            <Icon name={item.icon} size={20} />
+          </div>
           <div>{item.label}</div>
           {item.dot && <div className="dot" />}
         </div>

@@ -1,3 +1,5 @@
+import Icon from "./Icon";
+
 export interface Badge {
   id: string;
   icon: string;
@@ -27,7 +29,9 @@ export default function StreakBadges({
     <div className="badge-grid">
       {stats.badges.map((b) => (
         <div key={b.id} className={`badge-tile ${b.earned ? "" : "locked"}`} title={b.description}>
-          <div className="icon">{b.icon}</div>
+          <div className="icon">
+            <Icon name="medal" size={20} />
+          </div>
           <div className="label">{b.label}</div>
         </div>
       ))}
@@ -37,7 +41,7 @@ export default function StreakBadges({
   if (badgesOnly) {
     return (
       <div className="badges-section">
-        <div className="week-title">Badges</div>
+        <div className="week-title">Milestones</div>
         {badgeGrid}
       </div>
     );
@@ -46,7 +50,9 @@ export default function StreakBadges({
   return (
     <div className="card">
       <div className="streak-hero" style={{ padding: compact ? 4 : undefined }}>
-        <div className="streak-flame">{stats.currentStreak > 0 ? "🔥" : "💤"}</div>
+        <div className="streak-flame">
+          <Icon name={stats.currentStreak > 0 ? "flame" : "moon"} size={26} />
+        </div>
         <div>
           <div className="streak-count">{stats.currentStreak}</div>
           <div className="streak-label">

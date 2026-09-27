@@ -68,7 +68,7 @@ export default function GroupDetail() {
         </div>
         {group && (
           <button className="btn secondary sm" onClick={nudge}>
-            🔔 Nudge
+            Nudge
           </button>
         )}
       </div>
@@ -100,7 +100,7 @@ export default function GroupDetail() {
                 Messages
               </div>
               <div className={`tab ${tab === "notes" ? "active" : ""}`} onClick={() => setTab("notes")}>
-                Notes 🔒
+                Notes
               </div>
             </div>
 
@@ -251,7 +251,7 @@ function CoachNoteEditor({
   );
 }
 
-const RATING_LABEL: Record<string, string> = { EASY: "😌 Easy", JUST_RIGHT: "💪 Just right", BRUTAL: "🥵 Brutal" };
+const RATING_LABEL: Record<string, string> = { EASY: "Easy", JUST_RIGHT: "Just right", BRUTAL: "Brutal" };
 
 function MemberCheckIns({ groupId, userId }: { groupId: string; userId: string }) {
   const [checkIns, setCheckIns] = useState<

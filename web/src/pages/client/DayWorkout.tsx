@@ -4,7 +4,7 @@ import { api } from "../../lib/api";
 import RestTimer from "../../components/RestTimer";
 import MovementAnimation, { MovementPattern } from "../../components/MovementAnimation";
 import CheckInModal from "../../components/CheckInModal";
-import { burstConfetti } from "../../lib/confetti";
+import { celebrateComplete } from "../../lib/confetti";
 import { loadSession, saveSession, clearSession, LocalSession } from "../../lib/session";
 
 interface Completion {
@@ -125,7 +125,7 @@ export default function DayWorkout() {
       });
       if (!nowDone && day) {
         const willAllBeDone = day.exercises.every((e) => (e.id === ex.id ? true : e.completions.length > 0));
-        if (willAllBeDone) burstConfetti();
+        if (willAllBeDone) celebrateComplete();
       }
     } catch (e: any) {
       setError(e.message);
@@ -217,7 +217,8 @@ export default function DayWorkout() {
                   </div>
                   {ex.libraryItem?.cue && (
                     <div className="small muted" style={{ marginTop: 4 }}>
-                      💡 {ex.libraryItem.cue}
+                      <span className="cue-label">Technique </span>
+                      {ex.libraryItem.cue}
                     </div>
                   )}
                   {ex.notes && <div className="small muted" style={{ marginTop: 3 }}>{ex.notes}</div>}

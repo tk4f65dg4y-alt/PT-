@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { enablePush, getPushStatus } from "../lib/push";
+import Icon from "./Icon";
 
 export default function EnableNotifications({ text }: { text?: string }) {
   const [status, setStatus] = useState<"unsupported" | "denied" | "subscribed" | "available" | "checking">(
@@ -33,7 +34,7 @@ export default function EnableNotifications({ text }: { text?: string }) {
 
   return (
     <div className="notif-banner">
-      <div style={{ fontSize: 22 }}>🔔</div>
+      <Icon name="bell" size={19} />
       <div className="txt">
         {error || text || "Get reminders on workout days — enable notifications."}
       </div>

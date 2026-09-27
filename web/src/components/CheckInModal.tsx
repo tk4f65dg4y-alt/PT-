@@ -3,10 +3,10 @@ import { api } from "../lib/api";
 
 type Rating = "EASY" | "JUST_RIGHT" | "BRUTAL";
 
-const RATINGS: { value: Rating; icon: string; label: string }[] = [
-  { value: "EASY", icon: "😌", label: "Easy" },
-  { value: "JUST_RIGHT", icon: "💪", label: "Just right" },
-  { value: "BRUTAL", icon: "🥵", label: "Brutal" },
+const RATINGS: { value: Rating; level: number; label: string }[] = [
+  { value: "EASY", level: 1, label: "Easy" },
+  { value: "JUST_RIGHT", level: 2, label: "Just right" },
+  { value: "BRUTAL", level: 3, label: "Brutal" },
 ];
 
 export default function CheckInModal({
@@ -53,7 +53,11 @@ export default function CheckInModal({
               className={`checkin-rating ${rating === r.value ? "selected" : ""}`}
               onClick={() => setRating(r.value)}
             >
-              <span className="checkin-rating-icon">{r.icon}</span>
+              <span className="checkin-rating-dots">
+                {[1, 2, 3].map((n) => (
+                  <span key={n} className={`dot-fill ${n <= r.level ? "on" : ""}`} />
+                ))}
+              </span>
               {r.label}
             </button>
           ))}
