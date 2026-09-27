@@ -6,9 +6,10 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import GroupDetail from "./pages/admin/GroupDetail";
 import PlanBuilder from "./pages/admin/PlanBuilder";
 import AdminPlanView from "./pages/admin/PlanView";
-import ClientHome from "./pages/client/ClientHome";
+import Today from "./pages/client/Today";
 import ClientPlanView from "./pages/client/PlanView";
 import DayWorkout from "./pages/client/DayWorkout";
+import GuidedSession from "./pages/client/GuidedSession";
 import History from "./pages/client/History";
 import Messages from "./pages/client/Messages";
 import BookSession from "./pages/client/BookSession";
@@ -19,7 +20,7 @@ function Home() {
   if (loading) return <div className="empty">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "TRAINER") return <Navigate to="/admin" replace />;
-  return <ClientHome />;
+  return <Today />;
 }
 
 export default function App() {
@@ -41,6 +42,14 @@ export default function App() {
         element={
           <RequireAuth role="CLIENT">
             <DayWorkout />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/plans/:id/days/:dayId/guided"
+        element={
+          <RequireAuth role="CLIENT">
+            <GuidedSession />
           </RequireAuth>
         }
       />

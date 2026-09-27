@@ -19,6 +19,12 @@ enum BookingStatus {
   CANCELLED
 }
 
+enum CheckInRating {
+  EASY
+  JUST_RIGHT
+  BRUTAL
+}
+
 // Broad movement pattern a library exercise belongs to — drives which
 // animated demo is shown for it, since we don't host per-exercise video.
 enum MovementPattern {
@@ -49,15 +55,18 @@ model User {
   sentMessages      Message[]          @relation("MessageSender")
   pushSubscriptions PushSubscription[]
   bookingsRequested SessionBooking[]   @relation("BookingRequester")
+  checkIns          WorkoutCheckIn[]
 }
 
 // A Group is the unit a plan is assigned to. Solo clients are a group of 1;
 // clients who train together (pairs) are a group of 2+, sharing the same
 // assigned plan while each member's completions are tracked separately.
 model Group {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  name        String
+  coachNote   String? // short message from the trainer shown on this client's home screen
+  coachNoteAt DateTime?
+  createdAt   DateTime  @default(now())
 
   members  GroupMember[]
   plans    Plan[]
@@ -172,6 +181,23 @@ model WorkoutSession {
 
   day  Day  @relation(fields: [dayId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  checkIn WorkoutCheckIn?
+}
+
+// A client's "how did that feel?" response after finishing a session —
+// paired 1:1 with the WorkoutSession. A note here is also dropped into the
+// group's chat thread so the client can ask a question if they struggled.
+model WorkoutCheckIn {
+  id        String        @id @default(cuid())
+  sessionId String        @unique
+  userId    String
+  rating    CheckInRating
+  note      String?
+  createdAt DateTime      @default(now())
+
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // One chat thread per group (a solo client or a pair) between its member(s)

@@ -3,7 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import RestTimer from "../../components/RestTimer";
 import MovementAnimation, { MovementPattern } from "../../components/MovementAnimation";
+import CheckInModal from "../../components/CheckInModal";
 import { burstConfetti } from "../../lib/confetti";
+import { loadSession, saveSession, clearSession, LocalSession } from "../../lib/session";
 
 interface Completion {
   id: string;
@@ -34,10 +36,6 @@ interface PlanData {
   weeks: Week[];
 }
 
-function sessionKey(dayId: string) {
-  return `pt_session_${dayId}`;
-}
-
 function formatElapsed(seconds: number) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -53,9 +51,10 @@ export default function DayWorkout() {
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [error, setError] = useState("");
   const [openTimerFor, setOpenTimerFor] = useState<string | null>(null);
-  const [session, setSession] = useState<{ id: string; startedAt: number } | null>(null);
+  const [session, setSession] = useState<LocalSession | null>(null);
   const [now, setNow] = useState(Date.now());
   const [busyExercise, setBusyExercise] = useState<string | null>(null);
+  const [checkInFor, setCheckInFor] = useState<string | null>(null);
 
   useEffect(() => {
     api.get(`/client/plans/${planId}`).then(setPlan).catch((e) => setError(e.message));
@@ -63,14 +62,7 @@ export default function DayWorkout() {
 
   useEffect(() => {
     if (!dayId) return;
-    const raw = localStorage.getItem(sessionKey(dayId));
-    if (raw) {
-      try {
-        setSession(JSON.parse(raw));
-      } catch {
-        /* ignore */
-      }
-    }
+    setSession(loadSession(dayId));
   }, [dayId]);
 
   useEffect(() => {
@@ -91,14 +83,15 @@ export default function DayWorkout() {
     if (!dayId) return;
     const s = await api.post(`/client/days/${dayId}/sessions/start`);
     const rec = { id: s.id, startedAt: Date.parse(s.startedAt) };
-    localStorage.setItem(sessionKey(dayId), JSON.stringify(rec));
+    saveSession(dayId, rec);
     setSession(rec);
   }
 
   async function finishWorkout() {
     if (!session || !dayId) return;
     await api.post(`/client/sessions/${session.id}/finish`);
-    localStorage.removeItem(sessionKey(dayId));
+    clearSession(dayId);
+    setCheckInFor(session.id);
     setSession(null);
   }
 
@@ -144,6 +137,16 @@ export default function DayWorkout() {
   if (error) return <div className="content"><div className="error-box">{error}</div></div>;
   if (!plan || !day) return <div className="empty">Loading…</div>;
 
+  if (checkInFor) {
+    return (
+      <CheckInModal
+        sessionId={checkInFor}
+        dayLabel={day.label}
+        onDone={() => setCheckInFor(null)}
+      />
+    );
+  }
+
   const done = day.exercises.filter((e) => e.completions.length > 0).length;
   const total = day.exercises.length;
   const elapsed = session ? Math.max(0, Math.floor((now - session.startedAt) / 1000)) : 0;
@@ -162,10 +165,19 @@ export default function DayWorkout() {
         </span>
       </div>
       <div className="content">
+        {!session && (
+          <button
+            className="btn block"
+            onClick={() => navigate(`/plans/${planId}/days/${dayId}/guided`)}
+            style={{ marginBottom: 10 }}
+          >
+            ▶ Start guided session
+          </button>
+        )}
         <div className="card" style={{ textAlign: "center" }}>
           {!session ? (
-            <button className="btn block" onClick={startWorkout}>
-              ▶ Start workout
+            <button className="btn secondary block" onClick={startWorkout}>
+              Start here instead (list view)
             </button>
           ) : (
             <>

@@ -138,6 +138,19 @@ router.get("/groups/:id", async (req, res) => {
   res.json(group);
 });
 
+// Shown at the top of the client's home screen — set/update any time.
+router.put("/groups/:id/coach-note", async (req, res) => {
+  const { note } = req.body || {};
+  const group = await prisma.group.findUnique({ where: { id: req.params.id } });
+  if (!group) return res.status(404).json({ error: "Not found" });
+  const trimmed = typeof note === "string" ? note.trim() : "";
+  const updated = await prisma.group.update({
+    where: { id: group.id },
+    data: { coachNote: trimmed || null, coachNoteAt: trimmed ? new Date() : null },
+  });
+  res.json({ coachNote: updated.coachNote, coachNoteAt: updated.coachNoteAt });
+});
+
 // ---- Plans ----
 
 router.post("/groups/:id/plans", async (req, res) => {
@@ -287,6 +300,20 @@ router.get("/groups/:groupId/stats/:userId", async (req, res) => {
   if (!membership) return res.status(404).json({ error: "Not found" });
   const stats = await computeClientStats(req.params.userId);
   res.json(stats);
+});
+
+router.get("/groups/:groupId/checkins/:userId", async (req, res) => {
+  const membership = await prisma.groupMember.findFirst({
+    where: { groupId: req.params.groupId, userId: req.params.userId },
+  });
+  if (!membership) return res.status(404).json({ error: "Not found" });
+  const checkIns = await prisma.workoutCheckIn.findMany({
+    where: { userId: req.params.userId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: { session: { include: { day: true } } },
+  });
+  res.json(checkIns);
 });
 
 // ---- Messaging (one thread per group) ----

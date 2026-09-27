@@ -18,6 +18,72 @@ async function myGroupIds(userId: string) {
   return memberships.map((m) => m.groupId);
 }
 
+// Flattens a plan's weeks->days into calendar order and picks "today's"
+// day: if the plan has a start date, the day whose sequential offset lands
+// on today; otherwise the first day this user hasn't fully completed yet
+// (so a date-less rotation plan like a repeating split still has a sane
+// "what's next" answer). Returns null once every day is done.
+function computeTodayDayId(plan: {
+  startDate: Date | null;
+  weeks: { days: { id: string; exercises: { completions: { id: string }[] }[] }[] }[];
+}): string | null {
+  const flat = plan.weeks.flatMap((w) => w.days);
+  if (flat.length === 0) return null;
+
+  if (plan.startDate) {
+    const startKey = Date.UTC(
+      plan.startDate.getUTCFullYear(),
+      plan.startDate.getUTCMonth(),
+      plan.startDate.getUTCDate()
+    );
+    const todayKey = Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      new Date().getUTCDate()
+    );
+    const offset = Math.round((todayKey - startKey) / 86400000);
+    if (offset >= 0 && offset < flat.length) return flat[offset].id;
+  }
+
+  const nextIncomplete = flat.find(
+    (d) => d.exercises.length === 0 || d.exercises.some((e) => e.completions.length === 0)
+  );
+  return (nextIncomplete || flat[flat.length - 1]).id;
+}
+
+router.get("/home", async (req, res) => {
+  const groupIds = await myGroupIds(req.user!.id);
+  const group = await prisma.group.findUnique({ where: { id: groupIds[0] } });
+  const plan = await prisma.plan.findFirst({
+    where: { groupId: { in: groupIds }, archived: false },
+    orderBy: { createdAt: "desc" },
+    include: {
+      weeks: {
+        orderBy: { index: "asc" },
+        include: {
+          days: {
+            orderBy: { index: "asc" },
+            include: {
+              exercises: {
+                orderBy: { index: "asc" },
+                include: { completions: { where: { userId: req.user!.id } }, libraryItem: true },
+              },
+              sessions: { where: { userId: req.user!.id } },
+            },
+          },
+        },
+      },
+    },
+  });
+  const stats = await computeClientStats(req.user!.id);
+  res.json({
+    group: group ? { id: group.id, name: group.name, coachNote: group.coachNote, coachNoteAt: group.coachNoteAt } : null,
+    plan,
+    todayDayId: plan ? computeTodayDayId(plan) : null,
+    stats,
+  });
+});
+
 router.get("/plans", async (req, res) => {
   const groupIds = await myGroupIds(req.user!.id);
   const plans = await prisma.plan.findMany({
@@ -146,6 +212,42 @@ router.post("/sessions/:id/finish", async (req, res) => {
   }).catch(() => {});
 
   res.json(updated);
+});
+
+router.post("/sessions/:id/checkin", async (req, res) => {
+  const { rating, note } = req.body || {};
+  if (!["EASY", "JUST_RIGHT", "BRUTAL"].includes(rating)) {
+    return res.status(400).json({ error: "rating must be EASY, JUST_RIGHT or BRUTAL" });
+  }
+  const session = await prisma.workoutSession.findUnique({
+    where: { id: req.params.id },
+    include: { day: { include: { week: { include: { plan: true } } } } },
+  });
+  if (!session || session.userId !== req.user!.id) return res.status(404).json({ error: "Not found" });
+
+  const checkIn = await prisma.workoutCheckIn.upsert({
+    where: { sessionId: session.id },
+    create: { sessionId: session.id, userId: req.user!.id, rating, note: note || null },
+    update: { rating, note: note || null },
+  });
+
+  const trimmedNote = (note || "").trim();
+  if (trimmedNote) {
+    const message = await prisma.message.create({
+      data: {
+        groupId: session.day.week.plan.groupId,
+        senderId: req.user!.id,
+        body: `Re: "${session.day.label}" — ${trimmedNote}`,
+      },
+    });
+    sendPushToTrainers({
+      title: `${req.user!.name} has a question`,
+      body: message.body,
+      url: `/admin/groups/${session.day.week.plan.groupId}`,
+    }).catch(() => {});
+  }
+
+  res.status(201).json(checkIn);
 });
 
 router.get("/history", async (req, res) => {

@@ -21,6 +21,8 @@ interface Plan {
 interface GroupData {
   id: string;
   name: string;
+  coachNote: string | null;
+  coachNoteAt: string | null;
   members: Member[];
   plans: Plan[];
 }
@@ -85,6 +87,8 @@ export default function GroupDetail() {
               ))}
             </div>
 
+            <CoachNoteEditor group={group} onSaved={(note, at) => setGroup({ ...group, coachNote: note, coachNoteAt: at })} />
+
             <div className="tabs">
               <div className={`tab ${tab === "plans" ? "active" : ""}`} onClick={() => setTab("plans")}>
                 Plans
@@ -147,6 +151,7 @@ export default function GroupDetail() {
                   </div>
                 )}
                 {activeMember && <MemberStats groupId={group.id} userId={activeMember} />}
+                {activeMember && <MemberCheckIns groupId={group.id} userId={activeMember} />}
               </>
             )}
 
@@ -199,6 +204,85 @@ function MemberNotes({ member }: { member: Member }) {
       <button className="btn secondary sm" style={{ marginTop: 8 }} onClick={save} disabled={busy || saved}>
         {busy ? "Saving…" : saved ? "Saved" : "Save note"}
       </button>
+    </div>
+  );
+}
+
+function CoachNoteEditor({
+  group,
+  onSaved,
+}: {
+  group: GroupData;
+  onSaved: (note: string | null, at: string | null) => void;
+}) {
+  const [note, setNote] = useState(group.coachNote || "");
+  const [saved, setSaved] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    try {
+      const res = await api.put(`/admin/groups/${group.id}/coach-note`, { note });
+      onSaved(res.coachNote, res.coachNoteAt);
+      setSaved(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <div className="small muted" style={{ marginBottom: 6, fontWeight: 700 }}>
+        Note to client — shown on their home screen
+      </div>
+      <textarea
+        value={note}
+        onChange={(e) => {
+          setNote(e.target.value);
+          setSaved(false);
+        }}
+        placeholder="e.g. Great session last week — let's push the squats a little heavier today."
+        style={{ minHeight: 70 }}
+      />
+      <button className="btn secondary sm" style={{ marginTop: 8 }} onClick={save} disabled={busy || saved}>
+        {busy ? "Saving…" : saved ? "Saved" : "Save note"}
+      </button>
+    </div>
+  );
+}
+
+const RATING_LABEL: Record<string, string> = { EASY: "😌 Easy", JUST_RIGHT: "💪 Just right", BRUTAL: "🥵 Brutal" };
+
+function MemberCheckIns({ groupId, userId }: { groupId: string; userId: string }) {
+  const [checkIns, setCheckIns] = useState<
+    { id: string; rating: string; note: string | null; createdAt: string; session: { day: { label: string } } }[] | null
+  >(null);
+
+  useEffect(() => {
+    setCheckIns(null);
+    api.get(`/admin/groups/${groupId}/checkins/${userId}`).then(setCheckIns);
+  }, [groupId, userId]);
+
+  if (!checkIns) return null;
+  if (checkIns.length === 0) return null;
+
+  return (
+    <div className="card">
+      <div className="small muted" style={{ marginBottom: 8, fontWeight: 700 }}>
+        How sessions have felt
+      </div>
+      {checkIns.map((c) => (
+        <div key={c.id} className="list-row" style={{ marginBottom: 8, alignItems: "flex-start" }}>
+          <div>
+            <div className="small">{c.session.day.label}</div>
+            {c.note && <div className="small muted">{c.note}</div>}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div className="small">{RATING_LABEL[c.rating] || c.rating}</div>
+            <div className="small muted">{new Date(c.createdAt).toLocaleDateString()}</div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

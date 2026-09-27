@@ -14,7 +14,35 @@ export interface ClientStats {
   badges: Badge[];
 }
 
-export default function StreakBadges({ stats, compact }: { stats: ClientStats; compact?: boolean }) {
+export default function StreakBadges({
+  stats,
+  compact,
+  badgesOnly,
+}: {
+  stats: ClientStats;
+  compact?: boolean;
+  badgesOnly?: boolean;
+}) {
+  const badgeGrid = (
+    <div className="badge-grid">
+      {stats.badges.map((b) => (
+        <div key={b.id} className={`badge-tile ${b.earned ? "" : "locked"}`} title={b.description}>
+          <div className="icon">{b.icon}</div>
+          <div className="label">{b.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (badgesOnly) {
+    return (
+      <div className="badges-section">
+        <div className="week-title">Badges</div>
+        {badgeGrid}
+      </div>
+    );
+  }
+
   return (
     <div className="card">
       <div className="streak-hero" style={{ padding: compact ? 4 : undefined }}>
@@ -41,16 +69,7 @@ export default function StreakBadges({ stats, compact }: { stats: ClientStats; c
           <div className="l">Best streak</div>
         </div>
       </div>
-      {!compact && (
-        <div className="badge-grid">
-          {stats.badges.map((b) => (
-            <div key={b.id} className={`badge-tile ${b.earned ? "" : "locked"}`} title={b.description}>
-              <div className="icon">{b.icon}</div>
-              <div className="label">{b.label}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {!compact && badgeGrid}
     </div>
   );
 }

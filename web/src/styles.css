@@ -14,9 +14,10 @@
   --good: #3ecf8e;
   --warn: #eba238;
   --danger: #e2606b;
-  --radius: 16px;
-  --radius-sm: 10px;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+  --hairline: 1px solid rgba(206, 164, 86, 0.16);
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color-scheme: dark;
 }
@@ -411,8 +412,8 @@ a { color: var(--accent); text-decoration: none; }
 
 /* ---- Movement pattern animation ---- */
 .movement-icon {
-  width: 44px; height: 44px; border-radius: var(--radius-sm);
-  background: var(--bg-elev-2); border: 1px solid var(--border);
+  width: 44px; height: 44px; border-radius: 999px;
+  background: transparent; border: var(--hairline);
   display: flex; align-items: center; justify-content: center;
   flex: none; overflow: hidden;
 }
@@ -498,3 +499,128 @@ a { color: var(--accent); text-decoration: none; }
 @media (min-width: 720px) {
   .content { padding: 24px; }
 }
+
+/* ============================================================
+   Today / hero / coach note / stat strip / badges section
+   ============================================================ */
+
+.coach-note {
+  border-left: 2px solid var(--accent);
+  padding: 4px 0 4px 14px;
+  margin-bottom: 18px;
+}
+.coach-note-label {
+  font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.09em;
+  color: var(--accent-2); margin-bottom: 4px;
+}
+.coach-note-body { font-size: 14.5px; font-style: italic; color: var(--text); line-height: 1.5; }
+
+.hero-card {
+  border: var(--hairline);
+  border-radius: var(--radius);
+  padding: 28px 22px;
+  text-align: center;
+  margin-bottom: 20px;
+  background: linear-gradient(180deg, rgba(206,164,86,0.05), transparent 60%);
+}
+.hero-kicker {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em;
+  color: var(--accent); margin-bottom: 10px;
+}
+.hero-title {
+  font-size: 27px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;
+  margin-bottom: 8px;
+}
+.hero-meta { color: var(--text-dim); font-size: 13.5px; margin: 0 0 18px; }
+.hero-complete { color: var(--good); font-weight: 700; font-size: 14px; margin: 0 0 18px; }
+.hero-link {
+  display: inline-block; margin-top: 14px; font-size: 13px; font-weight: 700;
+  color: var(--accent-2); text-decoration: none;
+}
+
+.stat-strip {
+  display: flex; border: var(--hairline); border-radius: var(--radius-sm);
+  margin-bottom: 20px; overflow: hidden;
+}
+.stat-strip-item {
+  flex: 1; text-align: center; padding: 14px 8px;
+  border-right: var(--hairline);
+}
+.stat-strip-item:last-child { border-right: none; }
+.stat-strip-n { font-size: 21px; font-weight: 800; }
+.stat-strip-l { font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.07em; margin-top: 2px; }
+
+.badges-section { margin-bottom: 20px; }
+
+.footer-link {
+  display: block; text-align: center; color: var(--text-dim); font-size: 13px;
+  font-weight: 700; padding: 16px 0 4px; text-decoration: none;
+}
+
+/* ============================================================
+   Check-in overlay
+   ============================================================ */
+
+.checkin-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--bg);
+  display: flex; align-items: flex-end;
+  animation: fadeUp 0.2s ease;
+}
+.checkin-sheet {
+  width: 100%; max-width: 480px; margin: 0 auto;
+  padding: 28px 20px calc(28px + env(safe-area-inset-bottom));
+}
+.checkin-kicker {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--accent); margin-bottom: 8px; text-align: center;
+}
+.checkin-title { font-size: 21px; font-weight: 800; text-align: center; margin: 0 0 22px; line-height: 1.3; }
+.checkin-ratings { display: flex; gap: 10px; margin-bottom: 18px; }
+.checkin-rating {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 14px 6px; border-radius: var(--radius-sm);
+  background: var(--bg-elev-2); border: 1px solid var(--border);
+  color: var(--text-dim); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.checkin-rating.selected { border-color: var(--accent); color: var(--accent-2); background: var(--accent-dim); }
+.checkin-rating-icon { font-size: 26px; }
+.checkin-skip {
+  display: block; width: 100%; text-align: center; background: none; border: none;
+  color: var(--text-dim); font-size: 13px; font-weight: 700; padding: 14px 0 0; cursor: pointer;
+}
+
+/* ============================================================
+   Guided session
+   ============================================================ */
+
+.guided-shell {
+  min-height: 100%;
+  max-width: 480px; margin: 0 auto;
+  display: flex; flex-direction: column;
+}
+.guided-top {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px;
+}
+.guided-progress { flex: 1; }
+.guided-progress-text {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-dim); margin-bottom: 6px; text-align: center;
+}
+.guided-body {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; padding: 20px 26px 10px;
+}
+.guided-name { font-size: 25px; font-weight: 800; letter-spacing: -0.01em; margin: 18px 0 6px; }
+.guided-meta { color: var(--text-dim); font-size: 14px; margin-bottom: 10px; }
+.guided-cue { font-size: 14px; color: var(--text-dim); max-width: 340px; margin-top: 12px; line-height: 1.5; }
+.guided-check {
+  width: 56px; height: 56px; border-radius: 999px;
+  margin-top: 26px; font-size: 22px;
+}
+.guided-nav {
+  display: flex; gap: 10px; padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.guided-nav .btn { flex: 1; }
